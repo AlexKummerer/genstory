@@ -1,5 +1,6 @@
 from dataclasses import Field
 import enum
+import os
 import uuid
 from fastapi import Depends
 from fastapi_users.db import SQLAlchemyBaseUserTableUUID, SQLAlchemyUserDatabase
@@ -12,14 +13,17 @@ from sqlalchemy import (
     JSON,
     TIMESTAMP,
     ForeignKey,
-    Enum,
+    Enum as SQLAlchemyEnum,
 )
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 
-DATABASE_URL = "sqlite+aiosqlite:////test.db"
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+print(BASE_DIR)
+DATABASE_URL = f"sqlite+aiosqlite:///{os.path.join(BASE_DIR,'test.db')}"
+print(DATABASE_URL)
 
 Base = declarative_base()
 
@@ -38,6 +42,7 @@ class StoryStatus(str, enum.Enum):
 
 
 class User(SQLAlchemyBaseUserTableUUID, Base):
+    __tablename__ = "users"
     username = Column(String(20), unique=True, index=True)
     email = Column(String(100), unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
@@ -51,7 +56,7 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
 class Character(Base):
     __tablename__ = "characters"
 
-    id = Column(UUID(as_uuid=True), primary_key=True)
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))  # UUID as String
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     user_description = Column(Text, nullable=False)
 
@@ -59,7 +64,7 @@ class Character(Base):
     generated_traits = Column(JSON, nullable=True)
     story_context = Column(Text, nullable=True)
     generated_summary = Column(Text, nullable=True)
-    status = Column(CharacterStatus, nullable=True)  # or use StatusEnum
+    status = Column(SQLAlchemyEnum(CharacterStatus), nullable=True)  # or use StatusEnum
     created_at = Column(TIMESTAMP, nullable=False)
     updated_at = Column(TIMESTAMP, nullable=False)
 
@@ -80,7 +85,7 @@ class Story(Base):
     type = Column(String(50), nullable=True)
     title = Column(String(255), nullable=False)
     content = Column(Text, nullable=True)
-    status = Column(Enum(StoryStatus), nullable=False, default=StoryStatus.draft)
+    status = Column(SQLAlchemyEnum(StoryStatus), nullable=False, default=StoryStatus.draft)
     created_at = Column(TIMESTAMP, nullable=False)
     updated_at = Column(TIMESTAMP, nullable=False)
 
@@ -107,3 +112,4 @@ async def get_async_session():
 
 async def get_user_db(session: AsyncSession = Depends(get_async_session)):
     yield SQLAlchemyUserDatabase(session=session, user_table=User)
+
