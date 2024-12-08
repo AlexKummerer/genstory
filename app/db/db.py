@@ -56,13 +56,19 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
 class Character(Base):
     __tablename__ = "characters"
 
-    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))  # UUID as String
+    id = Column(
+        String, primary_key=True, default=lambda: str(uuid.uuid4())
+    )  # UUID as String
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    user_description = Column(Text, nullable=False)
-
-    name = Column(String(100), nullable=True)
-    generated_traits = Column(JSON, nullable=True)
-    story_context = Column(Text, nullable=True)
+    chat_id = Column(String, nullable=True)
+    character_description = Column(Text, nullable=True)
+    optimized_description = Column(Text, nullable=True)
+    character_name = Column(String(100), nullable=True)
+    optimized_name = Column(String(100), nullable=True)
+    character_traits = Column(JSON, nullable=True)
+    optimized_traits = Column(JSON, nullable=True)
+    character_story_context = Column(Text, nullable=True)
+    optimized_story_context = Column(Text, nullable=True)
     generated_summary = Column(Text, nullable=True)
     status = Column(SQLAlchemyEnum(CharacterStatus), nullable=True)  # or use StatusEnum
     created_at = Column(TIMESTAMP, nullable=False)
@@ -70,6 +76,9 @@ class Character(Base):
 
     # Relationships
     user = relationship("User", back_populates="characters")
+
+    def __repr__(self):
+        return f"Character(id={self.id!r}, user_id={self.user_id!r}, user_description={self.character_description!r}, name={self.character_name!r}, generated_traits={self.character_traits!r}, story_context={self.character_story_context!r}, generated_summary={self.generated_summary!r}, status={self.status!r}, created_at={self.created_at!r}, updated_at={self.updated_at!r})"
 
 
 class Story(Base):
@@ -85,7 +94,9 @@ class Story(Base):
     type = Column(String(50), nullable=True)
     title = Column(String(255), nullable=False)
     content = Column(Text, nullable=True)
-    status = Column(SQLAlchemyEnum(StoryStatus), nullable=False, default=StoryStatus.draft)
+    status = Column(
+        SQLAlchemyEnum(StoryStatus), nullable=False, default=StoryStatus.draft
+    )
     created_at = Column(TIMESTAMP, nullable=False)
     updated_at = Column(TIMESTAMP, nullable=False)
 
@@ -112,4 +123,3 @@ async def get_async_session():
 
 async def get_user_db(session: AsyncSession = Depends(get_async_session)):
     yield SQLAlchemyUserDatabase(session=session, user_table=User)
-

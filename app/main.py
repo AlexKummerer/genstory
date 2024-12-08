@@ -32,21 +32,12 @@ app.include_router(
 
 
 app.include_router(
-    fastapi_users.get_verify_router(UserRead),
-    prefix="/auth",
-    tags=["auth"],
-)
-
-
-app.include_router(
-    fastapi_users.get_users_router(active_user, UserRead, UserUpdate),
-    prefix="/users/active",
-    tags=["users"],
-)
-
-app.include_router(
-    fastapi_users.get_users_router(inactive_user, UserRead, UserUpdate),
-    prefix="/users/inactive",
+    fastapi_users.get_users_router(
+        UserRead,
+        UserUpdate,
+        False,
+    ),
+    prefix="/users",
     tags=["users"],
 )
 

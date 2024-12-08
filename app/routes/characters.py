@@ -4,42 +4,81 @@ from sqlalchemy.future import select
 from pydantic import BaseModel, Field
 from datetime import datetime, timezone
 from uuid import uuid4
-from typing import List, Optional
+from typing import Any, List, Optional
 from app.db.db import Character, CharacterStatus, User
 from app.db.db import get_async_session
 from app.users.user import active_user
+from app.utils.grok_client import generate_character_with_grok
+from app.utils.groq_client import (
+    generate_character_with_groq,
+    update_character_with_groq,
+)
 
 router = APIRouter()
 
 
 # Pydantic Models
 class CharacterInput(BaseModel):
-    description: str = Field(..., title="Description", max_length=500)
+    description: str = Field(..., title="Description", max_length=1000)
     name: str | None = Field(None, title="Name", max_length=100)
+    traits: dict | None = Field(
+        {
+            "curious": "Updated description emphasizing exploration and its impact on the plot.",
+            "brave": "Enhanced description focusing on how bravery shapes key moments.",
+            "sympathetic": "Deepened description of empathy that connects with readers.",
+            "cunning": "Expanded narrative on cunning, showing complex tactical acumen.",
+            "resolute": "Strengthened portrayal of determination and its role in overcoming challenges.",
+        },
+        title="Traits",
+    )
+    story_context: str | None = Field(None, title="Story Context")
+
+    def __repr__(self):
+        return f"{self.description} {self.name} {self.traits} {self.story_context}"
 
 
 class CharacterUpdateInput(BaseModel):
     description: str | None = None
     name: str | None = None
-    generated_traits: dict | None = None
+    traits: dict | None = None
     story_context: str | None = None
+
+    def __repr__(self):
+        return f"{self.description} {self.name} {self.generated_traits} {self.story_context}"
 
 
 class CharacterResponse(BaseModel):
     id: str
-    name: str | None
-    description: str
-    generated_traits: dict | None
-    story_context: str | None
-    generated_summary: str | None
+    chat_id: str | None
+    character_name: str | None
+    optimized_name: str | None
+    character_description: str
+    optimized_description: str | None
+    character_traits: dict | None
+    optimized_traits: dict | None
+    character_story_context: str | None
+    optimized_story_context: str | None
     status: str
+
+    def __call__(self, *args: Any, **kwds: Any) -> Any:
+        return super().__call__(*args, **kwds)
 
 
 class CharacterListResponse(BaseModel):
     id: str
-    name: str | None
-    description: str
+    chat_id: str | None
+    character_name: str | None
+    optimized_name: str | None
+    character_description: str
+    optimized_description: str | None
+    character_traits: dict | None
+    optimized_traits: dict | None
+    character_story_context: str | None
+    optimized_story_context: str | None
     status: str
+
+    def __repr__(self):
+        return f"{self.id} {self.character_name} {self.character_description} {self.status}"
 
 
 # Mock LLM Function for Generating Data
@@ -61,27 +100,38 @@ async def create_character(
     user: User = Depends(active_user),
 ):
     """Create a new character with draft status."""
-
+    print(data)
     new_character = Character(
         id=str(uuid4()),
-        user_description=data.description,
-        name=data.name,
+        character_name=data.name,
+        character_description=data.description,
+        character_traits=data.traits,
+        character_story_context=data.story_context,
         user_id=user.id,
         status=CharacterStatus.draft,
         created_at=datetime.now(timezone.utc),
         updated_at=datetime.now(timezone.utc),
     )
     print(new_character)
-    db.add(new_character)
-    await db.commit()
-    await db.refresh(new_character)
+    try:
+        db.add(new_character)
+        await db.commit()
+        await db.refresh(new_character)
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=500, detail="Error creating character")
 
     return {
         "id": new_character.id,
-        "name": new_character.name,
-        "description": new_character.user_description,
-        "generated_traits": new_character.generated_traits,
-        "story_context": new_character.story_context,
+        "character_name": new_character.character_name,
+        "optimized_name": new_character.optimized_name,
+        "chat_id": new_character.chat_id,
+        "character_description": new_character.character_description,
+        "optimized_description": new_character.optimized_description,
+        "character_traits": new_character.character_traits,
+        "optimized_traits": new_character.character_traits,
+        "character_story_context": new_character.character_story_context,
+        "optimized_story_context": new_character.optimized_story_context,
         "generated_summary": new_character.generated_summary,
         "status": new_character.status.value,
     }
@@ -99,9 +149,11 @@ async def generate_character(
         .where(Character.user_id == user.id)
         .where(Character.id == character_id)
     )
+    print(query, "query")
+    generated_data = None
     result = await db.execute(query)
     character = result.scalars().first()
-
+    print(character, "character")
     if not character:
         raise HTTPException(status_code=404, detail="Character not found")
     if character.status not in {CharacterStatus.draft, CharacterStatus.generated}:
@@ -109,11 +161,19 @@ async def generate_character(
             status_code=400, detail="Character must be in draft or generated status."
         )
 
-    generated_data = mock_llm_generate(character.user_description)
-    character.generated_traits = generated_data["generated_traits"]
-    character.story_context = generated_data["story_context"]
-    character.generated_summary = generated_data["generated_summary"]
-    character.status = CharacterStatus.generated
+    try:
+        generated_data, chat_id = await generate_character_with_groq(character)
+        print(generated_data, chat_id, "generated_data")
+
+    except ValueError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    character.optimized_name = generated_data["optimized_name"]
+    character.optimized_description = generated_data["optimized_description"]
+    character.chat_id = chat_id
+    character.optimized_traits = generated_data["optimized_traits"]
+    character.optimized_story_context = generated_data["optimized_story_context"]
+    character.status = CharacterStatus.generated.value
     character.updated_at = datetime.now(timezone.utc)
 
     await db.commit()
@@ -121,19 +181,24 @@ async def generate_character(
 
     return {
         "id": character.id,
-        "name": character.name,
-        "description": character.user_description,
-        "generated_traits": character.generated_traits,
-        "story_context": character.story_context,
+        "chat_id": character.chat_id,
+        "character_name": character.character_name,
+        "optimized_name": character.optimized_name,
+        "character_description": character.character_description,
+        "optimized_description": character.optimized_description,  #
+        "character_traits": character.character_traits,
+        "optimized_traits": character.optimized_traits,
+        "character_story_context": character.character_story_context,
+        "optimized_story_context": character.optimized_story_context,
         "generated_summary": character.generated_summary,
-        "status": character.status.value,
+        "status": character.status,
     }
 
 
-@router.put("/{character_id}", response_model=CharacterResponse)
+@router.put("/{character_id}/save", response_model=CharacterResponse)
 async def update_character(
     character_id: str,
-    data: CharacterUpdateInput,
+    data: CharacterInput,
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(active_user),
 ):
@@ -152,15 +217,18 @@ async def update_character(
         raise HTTPException(
             status_code=400, detail="Finalized characters cannot be modified."
         )
+    print(data, "data")
 
-    if data.description is not None:
-        character.user_description = data.description
-    if data.name is not None:
-        character.name = data.name
-    if data.generated_traits is not None:
-        character.generated_traits = data.generated_traits
-    if data.story_context is not None:
-        character.story_context = data.story_context
+    character.character_name = data.name
+    character.optimized_name = None
+    character.character_description = data.description
+    character.optimized_description = None
+    character.character_traits = data.traits
+    character.optimized_traits = None
+    character.character_story_context = data.story_context
+    character.optimized_story_context = None
+    character.status = CharacterStatus.generated.value
+    character.updated_at = datetime.now(timezone.utc)
 
     character.updated_at = datetime.now(timezone.utc)
 
@@ -169,10 +237,15 @@ async def update_character(
 
     return {
         "id": character.id,
-        "name": character.name,
-        "description": character.user_description,
-        "generated_traits": character.generated_traits,
-        "story_context": character.story_context,
+        "chat_id": character.chat_id,
+        "character_name": character.character_name,
+        "optimized_name": character.optimized_name,
+        "character_description": character.character_description,
+        "optimized_description": character.optimized_description,
+        "character_traits": character.character_traits,
+        "optimized_traits": character.optimized_traits,
+        "character_story_context": character.character_story_context,
+        "optimized_story_context": character.optimized_story_context,
         "generated_summary": character.generated_summary,
         "status": character.status.value,
     }
@@ -208,10 +281,15 @@ async def finalize_character(
 
     return {
         "id": character.id,
-        "name": character.name,
-        "description": character.user_description,
-        "generated_traits": character.generated_traits,
-        "story_context": character.story_context,
+        "chat_id": character.chat_id,
+        "character_name": character.character_name,
+        "optimized_name": character.optimized_name,
+        "character_description": character.character_description,
+        "optimized_description": character.optimized_description,
+        "character_traits": character.character_traits,
+        "optimized_traits": character.optimized_traits,
+        "character_story_context": character.character_story_context,
+        "optimized_story_context": character.optimized_story_context,
         "generated_summary": character.generated_summary,
         "status": character.status.value,
     }
@@ -234,8 +312,16 @@ async def get_all_characters(
     return [
         {
             "id": c.id,
-            "name": c.name,
-            "description": c.user_description,
+            "character_name": c.character_name,
+            "optimized_name": c.optimized_name,
+            "chat_id": c.chat_id,
+            "character_description": c.character_description,
+            "optimized_description": c.optimized_description,
+            "character_traits": c.character_traits,
+            "optimized_traits": c.optimized_traits,
+            "character_story_context": c.character_story_context,
+            "optimized_story_context": c.optimized_story_context,
+            "generated_summary": c.generated_summary,
             "status": c.status.value,
         }
         for c in characters
@@ -262,10 +348,15 @@ async def get_character(
 
     return {
         "id": character.id,
-        "name": character.name,
-        "description": character.user_description,
-        "generated_traits": character.generated_traits,
-        "story_context": character.story_context,
+        "chat_id": character.chat_id,
+        "character_name": character.character_name,
+        "optimized_name": character.optimized_name,
+        "character_description": character.character_description,
+        "optimized_description": character.optimized_description,
+        "character_traits": character.character_traits,
+        "optimized_traits": character.optimized_traits,
+        "character_story_context": character.character_story_context,
+        "optimized_story_context": character.optimized_story_context,
         "generated_summary": character.generated_summary,
         "status": character.status.value,
     }
