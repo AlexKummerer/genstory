@@ -2,10 +2,14 @@ import json
 import os
 from typing import Any, Coroutine
 
-from groq import AsyncGroq, Groq
+from dotenv import load_dotenv
+from openai import OpenAI
+from openai.resources.chat.completions import ChatCompletion
 from pydantic import BaseModel
 
 from app.db.db import Character
+
+load_dotenv()
 
 
 class CharacterUpdateInput(BaseModel):
@@ -18,8 +22,18 @@ class CharacterUpdateInput(BaseModel):
         return f"{self.description} {self.name} {self.generated_traits} {self.story_context}"
 
 
-async def generate_character_with_groq(character_data: Character) -> Any:
-    client = AsyncGroq(api_key=os.getenv("GROQ_API_KEY"))
+class Step(BaseModel):
+    explanation: str
+    output: str
+
+
+class MathReasoning(BaseModel):
+    steps: list[Step]
+    final_answer: str
+
+
+async def generate_character_with_openai(character_data: Character) -> Any:
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
     prompt = f"""
    You are a creative AI assistant specialized in storytelling and character creation for children's stories. Please refine and enhance the provided elements to develop characters that are engaging, educational, and suitable for young readers:
 
@@ -59,7 +73,8 @@ Given Data:
 }}
 """
     try:
-        response = await client.chat.completions.create(
+
+        response : ChatCompletion = client.chat.completions.create(
             messages=[
                 {
                     "role": "system",
@@ -71,15 +86,17 @@ Given Data:
                 },
             ],
             response_format={
-                "type": "json_object"
-            },  # This is an example; adjust based on actual API requirements
-            model="llama-3.1-70b-versatile",
+                "type": "json_object",
+            },
+            # This is an example; adjust based on actual API requirements
+            model="gpt-4o-mini",
         )
         print(response)
 
         if response.choices:
             choice = response.choices[0]
             message_content = choice.message.content
+            print("Message content:", json.loads(message_content))
             chat_id = response.id  # Fetch the chat completion ID from the response
 
             # Parsing the JSON string within the message content

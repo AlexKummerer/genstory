@@ -8,11 +8,8 @@ from typing import Any, List, Optional
 from app.db.db import Character, CharacterStatus, User
 from app.db.db import get_async_session
 from app.users.user import active_user
-from app.utils.grok_client import generate_character_with_grok
-from app.utils.groq_client import (
-    generate_character_with_groq,
-    update_character_with_groq,
-)
+
+from app.utils.openai_client import generate_character_with_openai
 
 router = APIRouter()
 
@@ -35,16 +32,6 @@ class CharacterInput(BaseModel):
 
     def __repr__(self):
         return f"{self.description} {self.name} {self.traits} {self.story_context}"
-
-
-class CharacterUpdateInput(BaseModel):
-    description: str | None = None
-    name: str | None = None
-    traits: dict | None = None
-    story_context: str | None = None
-
-    def __repr__(self):
-        return f"{self.description} {self.name} {self.generated_traits} {self.story_context}"
 
 
 class CharacterResponse(BaseModel):
@@ -149,6 +136,7 @@ async def generate_character(
         .where(Character.user_id == user.id)
         .where(Character.id == character_id)
     )
+    
     print(query, "query")
     generated_data = None
     result = await db.execute(query)
@@ -162,7 +150,7 @@ async def generate_character(
         )
 
     try:
-        generated_data, chat_id = await generate_character_with_groq(character)
+        generated_data, chat_id = await generate_character_with_openai(character)
         print(generated_data, chat_id, "generated_data")
 
     except ValueError as e:
