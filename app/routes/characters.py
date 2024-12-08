@@ -360,3 +360,27 @@ async def get_character(
         "generated_summary": character.generated_summary,
         "status": character.status.value,
     }
+
+
+@router.delete("/{character_id}")
+async def delete_character(
+    character_id: str,
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(active_user),
+):
+    """Delete a character by ID."""
+    query = (
+        select(Character)
+        .where(Character.user_id == user.id)
+        .where(Character.id == character_id)
+    )
+    result = await db.execute(query)
+    character = result.scalars().first()
+
+    if not character:
+        raise HTTPException(status_code=404, detail="Character not found")
+
+    db.delete(character)
+    await db.commit()
+
+    return {"message": "Character deleted successfully."}
