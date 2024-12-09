@@ -1,13 +1,15 @@
 import json
 import os
-from typing import Any, Coroutine
+from typing import Any, Coroutine, List, Optional
 
 from dotenv import load_dotenv
 from openai import OpenAI
+import openai
 from openai.resources.chat.completions import ChatCompletion
 from pydantic import BaseModel
+from sqlalchemy import Sequence
 
-from app.db.db import Character
+from app.db.db import Character, Story
 
 load_dotenv()
 
@@ -74,7 +76,7 @@ Given Data:
 """
     try:
 
-        response : ChatCompletion = client.chat.completions.create(
+        response: ChatCompletion = client.chat.completions.create(
             messages=[
                 {
                     "role": "system",
@@ -117,3 +119,53 @@ Given Data:
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
         return None, "No ID found"
+
+
+async def generate_story_with_openai(
+    title: str, description: str, characters: List[Character]
+) -> str:
+    # Combine character traits and backstories into a prompt
+
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+    character_descriptions = "\n".join(
+        f"{c.character_name}: {c.character_description}" for c in characters
+    )
+    prompt = (
+        f"Write a story titled '{title}'. Description: {description}\n"
+        f"The story should include these characters:\n{character_descriptions}"
+    )
+
+    # Call OpenAI API
+    response = client.chat.completions.create(
+        prompt=prompt,
+        temperature=0.7,
+        model="gpt-4o-mini",
+    )
+    return response["choices"][0]["text"].strip()
+
+
+async def generate_story_details_with_openai(
+    story: Story, characters: List[Character]
+) -> dict:
+
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+    character_descriptions = "\n".join(
+        f"- {c.character_name}: {c.character_description}" for c in characters
+    )
+
+    prompt = (
+        f"Refine the following story details:\n"
+        f"Title: {story.title}\n"
+        f"Description: {story.description}\n"
+        f"Characters:\n{character_descriptions}\n\n"
+        "Improve the title, expand the description, and suggest key roles for each character."
+    )
+
+    response = client.chat.completions.create(
+        prompt=prompt,
+        temperature=0.7,
+        model="gpt-4o-mini",
+    )
+    return response

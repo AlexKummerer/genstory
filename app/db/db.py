@@ -86,13 +86,10 @@ class Story(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    description = Column(Text, nullable=True)
-    charachter_ids = Column(
-        Text, nullable=True
-    )  # JSON-based many-to-many not normalized
-
-    type = Column(String(50), nullable=True)
     title = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    character_ids = Column(JSON, nullable=True)  # Store related character IDs
+    character_roles = Column(Text, nullable=True)  # Stores roles for each character
     content = Column(Text, nullable=True)
     status = Column(
         SQLAlchemyEnum(StoryStatus), nullable=False, default=StoryStatus.draft
