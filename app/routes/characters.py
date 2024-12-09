@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, validator
 from datetime import datetime, timezone
 from uuid import uuid4
 from typing import Any, List, Optional
@@ -9,6 +9,7 @@ from app.db.db import Character, CharacterStatus, User
 from app.db.db import get_async_session
 from app.users.user import active_user
 
+from app.utils.groq_client import generate_character_with_groq
 from app.utils.openai_client import generate_character_with_openai
 
 router = APIRouter()
@@ -29,6 +30,18 @@ class CharacterInput(BaseModel):
         title="Traits",
     )
     story_context: str | None = Field(None, title="Story Context")
+
+    @field_validator("name")
+    def validate_name(cls, name):
+        if name and len(name) < 3:
+            raise ValueError("Name must be at least 3 characters long.")
+        return name
+
+    @field_validator("description")
+    def validate_description(cls, description):
+        if len(description) < 10:
+            raise ValueError("Description must be at least 10 characters long.")
+        return description
 
     def __repr__(self):
         return f"{self.description} {self.name} {self.traits} {self.story_context}"
@@ -116,7 +129,7 @@ async def create_character(
         "character_description": new_character.character_description,
         "optimized_description": new_character.optimized_description,
         "character_traits": new_character.character_traits,
-        "optimized_traits": new_character.character_traits,
+        "optimized_traits": new_character.optimized_traits,
         "character_story_context": new_character.character_story_context,
         "optimized_story_context": new_character.optimized_story_context,
         "generated_summary": new_character.generated_summary,
@@ -136,7 +149,7 @@ async def generate_character(
         .where(Character.user_id == user.id)
         .where(Character.id == character_id)
     )
-    
+
     print(query, "query")
     generated_data = None
     result = await db.execute(query)
@@ -150,7 +163,7 @@ async def generate_character(
         )
 
     try:
-        generated_data, chat_id = await generate_character_with_openai(character)
+        generated_data, chat_id = await generate_character_with_groq(character)
         print(generated_data, chat_id, "generated_data")
 
     except ValueError as e:
@@ -286,14 +299,18 @@ async def finalize_character(
 @router.get("/", response_model=List[CharacterListResponse])
 async def get_all_characters(
     status: Optional[CharacterStatus] = Query(None),
+    page: int = 1,
+    size: int = 10,
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(active_user),
 ):
     """Fetch all characters, optionally filtered by status."""
-    query = select(Character).where(Character.user_id == user.id)
+    offset = (page - 1) * size
+    query = (
+        select(Character).where(Character.user_id == user.id).offset(offset).limit(size)
+    )
     if status:
         query = query.where(Character.status == status)
-
     result = await db.execute(query)
     characters = result.scalars().all()
 
@@ -317,7 +334,7 @@ async def get_all_characters(
 
 
 @router.get("/{character_id}", response_model=CharacterResponse)
-async def get_character(
+async def fetch_character_by_id(
     character_id: str,
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(active_user),

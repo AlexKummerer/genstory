@@ -43,7 +43,7 @@ class StoryStatus(str, enum.Enum):
 
 class User(SQLAlchemyBaseUserTableUUID, Base):
     __tablename__ = "users"
-    username = Column(String(20), unique=True, index=True)
+    username = Column(String(20), unique=False, index=True)
     email = Column(String(100), unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
