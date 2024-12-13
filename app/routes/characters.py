@@ -163,7 +163,7 @@ async def generate_character(
         )
 
     try:
-        generated_data, chat_id = await generate_character_with_groq(character)
+        generated_data, chat_id = await generate_character_with_openai(character)
         print(generated_data, chat_id, "generated_data")
 
     except ValueError as e:

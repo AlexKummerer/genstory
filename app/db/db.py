@@ -84,12 +84,14 @@ class Character(Base):
 class Story(Base):
     __tablename__ = "stories"
 
-    id = Column(UUID(as_uuid=True), primary_key=True)
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     title = Column(String(255), nullable=False)
+    optimized_title = Column(String(255), nullable=True)
     description = Column(Text, nullable=True)
+    optimized_description = Column(Text, nullable=True)
     character_ids = Column(JSON, nullable=True)  # Store related character IDs
-    character_roles = Column(Text, nullable=True)  # Stores roles for each character
+    character_roles = Column(JSON, nullable=True)  # Stores roles for each character
     content = Column(Text, nullable=True)
     status = Column(
         SQLAlchemyEnum(StoryStatus), nullable=False, default=StoryStatus.draft

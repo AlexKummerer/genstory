@@ -1,14 +1,13 @@
 from datetime import datetime
+import uuid
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from typing import List
-from app.db.db import Story, Character, User, get_async_session
-from app.schemas.schemas import StoryInput, StoryResponse
+from app.db.db import CharacterStatus, Story, Character, User, get_async_session
 from app.users.user import active_user
 from app.utils.openai_client import (
     generate_story_details_with_openai,
-    generate_story_with_openai,
 )
 
 router = APIRouter()
@@ -31,7 +30,9 @@ class StoryInput(BaseModel):
 class StoryResponse(BaseModel):
     id: str
     title: str
+    optimized_title: Optional[str]
     description: Optional[str]
+    optimized_description: Optional[str]
     character_ids: List[str]
     content: Optional[str]
     status: str
@@ -48,6 +49,7 @@ async def create_story(
     query = select(Character).where(
         Character.id.in_(story.character_ids),
         Character.user_id == user.id,
+        Character.status.in_([CharacterStatus.generated, CharacterStatus.finalized]),
     )
     result = await db.execute(query)
     characters = result.scalars().all()
@@ -71,13 +73,13 @@ async def create_story(
     return new_story
 
 
-@router.post("/{story_id}/generate", response_model=StoryResponse)
-async def generate_story(
+@router.post("/{story_id}/refine", response_model=StoryResponse)
+async def refine_story_details(
     story_id: str,
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(active_user),
 ):
-    """Generate story content based on characters and description."""
+    """Refine story details using the LLM."""
     query = select(Story).where(
         Story.id == story_id,
         Story.user_id == user.id,
@@ -85,91 +87,11 @@ async def generate_story(
     result = await db.execute(query)
     story = result.scalars().first()
 
-    if not story:
-        raise HTTPException(status_code=404, detail="Story not found.")
-
-    # Fetch associated characters
-    character_query = select(Character).where(
-        Character.id.in_(story.character_ids),
-        Character.user_id == user.id,
-    )
-    character_result = await db.execute(character_query)
-    characters = character_result.scalars().all()
-
-    # Generate the story using characters and description
-    try:
-        story_content = "This is a test story content."
-        story_content = await generate_story_with_openai(
-            story.title, story.description, characters
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error generating story: {e}")
-
-    story.content = story_content
-    story.status = "draft"
-    story.updated_at = datetime.now()
-
-    await db.commit()
-    await db.refresh(story)
-    return story
-
-
-@router.get("/{story_id}", response_model=StoryResponse)
-async def get_story(
-    story_id: str,
-    db: AsyncSession = Depends(get_async_session),
-    user: User = Depends(active_user),
-):
-    """Fetch a specific story and its characters."""
-    story_query = select(Story).where(
-        Story.id == story_id,
-        Story.user_id == user.id,
-    )
-    story_result = await db.execute(story_query)
-    story = story_result.scalars().first()
-
-    if not story:
-        raise HTTPException(status_code=404, detail="Story not found.")
-
-    # Fetch associated characters
-    character_query = select(Character).where(
-        Character.id.in_(story.character_ids),
-        Character.user_id == user.id,
-    )
-    character_result = await db.execute(character_query)
-    characters = character_result.scalars().all()
-
-    return {
-        "id": story.id,
-        "title": story.title,
-        "description": story.description,
-        "character_ids": story.character_ids,
-        "content": story.content,
-        "status": story.status,
-        "characters": [
-            {
-                "id": c.id,
-                "name": c.character_name,
-                "description": c.character_description,
-                "traits": c.character_traits,
-                "story_context": c.character_story_context,
-            }
-            for c in characters
-        ],
-    }
-
-
-@router.post("/refine", response_model=StoryResponse)
-async def refine_story_details(
-    story: StoryInput,
-    db: AsyncSession = Depends(get_async_session),
-    user: User = Depends(active_user),
-):
-    """Refine story details using the LLM."""
     # Fetch characters
     query = select(Character).where(
         Character.id.in_(story.character_ids),
         Character.user_id == user.id,
+        Character.status.in_([CharacterStatus.generated, CharacterStatus.finalized]),
     )
     result = await db.execute(query)
     characters = result.scalars().all()
@@ -182,27 +104,32 @@ async def refine_story_details(
     # Call the LLM
     try:
         response = await generate_story_details_with_openai(story, characters)
-        refined_details = response["choices"][0]["text"].strip()
+        print(response)
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Error refining story details: {e}"
         )
 
-    # Parse the LLM output (custom logic based on LLM response format)
-    # Example: parse the response to extract title, description, and roles
-    refined_title = refined_details.split("Title:")[1].split("\n")[0].strip()
-    refined_description = (
-        refined_details.split("Description:")[1].split("\n")[0].strip()
-    )
-    character_roles = refined_details.split("Roles:")[1].strip()
+    print(response["character_roles"])
+
+    story.optimized_title = response["optimized_title"]
+    story.optimized_description = response["optimized_description"]
+    story.character_roles = response["character_roles"]
+    story.updated_at = datetime.now()
+
+    await db.commit()
+    await db.refresh(story)
 
     return {
-        "title": refined_title,
-        "description": refined_description,
+        "id": story.id,
+        "title": story.title,
+        "optimized_title": response["optimized_title"],
+        "description": story.description,
+        "optimized_description": response["optimized_description"],
         "character_ids": story.character_ids,
+        # "character_roles": response["character_roles"],
         "content": None,
-        "status": "draft",
-        "roles": character_roles,  # Include character roles as part of the response
+        "status": story.status.value,
     }
 
 
@@ -248,28 +175,3 @@ async def update_story_basic_details(
         "content": story.content,
         "status": story.status,
     }
-
-
-@router.delete("/{story_id}", response_model=dict)
-async def delete_story(
-    story_id: str,
-    db: AsyncSession = Depends(get_async_session),
-    user: User = Depends(active_user),
-):
-    """Delete a story by ID."""
-    # Fetch the story to ensure it exists and belongs to the user
-    query = select(Story).where(
-        Story.id == story_id,
-        Story.user_id == user.id,
-    )
-    result = await db.execute(query)
-    story = result.scalars().first()
-
-    if not story:
-        raise HTTPException(status_code=404, detail="Story not found.")
-
-    # Delete the story
-    await db.delete(story)
-    await db.commit()
-
-    return {"message": f"Story with ID {story_id} deleted successfully."}

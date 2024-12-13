@@ -4,13 +4,14 @@ from fastapi import Depends, FastAPI
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.db.db import User, create_db_and_tables
-from app.routes import characters
+from app.routes import characters, stories
 from app.schemas.schemas import UserCreate, UserRead, UserUpdate
 from app.users.user import active_user, auth_backend, fastapi_users, inactive_user
 
 app = FastAPI()
 
 app.include_router(characters.router, prefix="/characters", tags=["characters"])
+app.include_router(stories.router, prefix="/stories", tags=["stories"])
 
 app.include_router(
     fastapi_users.get_auth_router(auth_backend),
