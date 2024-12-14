@@ -12,7 +12,7 @@ from app.utils.openai_client import (
 
 router = APIRouter()
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import List, Optional
 
 
@@ -20,11 +20,41 @@ class StoryBasicUpdate(BaseModel):
     title: Optional[str]
     description: Optional[str]
 
+    @field_validator("description")
+    def validate_description(cls, v):
+        if len(v) < 20:
+            raise ValueError("Description should be at least 10 characters.")
+        return v
+
+    @field_validator("title")
+    def validate_title(cls, v):
+        if len(v) < 5:
+            raise ValueError("Title should be at least 10 characters.")
+        return v
+
 
 class StoryInput(BaseModel):
     title: str
     description: Optional[str]
     character_ids: List[str]
+
+    @field_validator("character_ids")
+    def validate_character_ids(cls, v):
+        if len(v) < 2:
+            raise ValueError("At least 2 characters are required.")
+        return v
+
+    @field_validator("description")
+    def validate_description(cls, v):
+        if len(v) < 20:
+            raise ValueError("Description should be at least 10 characters.")
+        return v
+
+    @field_validator("title")
+    def validate_title(cls, v):
+        if len(v) < 5:
+            raise ValueError("Title should be at least 10 characters.")
+        return v
 
 
 class StoryResponse(BaseModel):
@@ -34,6 +64,7 @@ class StoryResponse(BaseModel):
     description: Optional[str]
     optimized_description: Optional[str]
     character_ids: List[str]
+    character_roles: Optional[List[dict]]
     content: Optional[str]
     status: str
 
@@ -96,6 +127,8 @@ async def refine_story_details(
     result = await db.execute(query)
     characters = result.scalars().all()
 
+    print(characters)
+
     if len(characters) != len(story.character_ids):
         raise HTTPException(status_code=400, detail="Invalid character IDs.")
 
@@ -127,7 +160,7 @@ async def refine_story_details(
         "description": story.description,
         "optimized_description": response["optimized_description"],
         "character_ids": story.character_ids,
-        # "character_roles": response["character_roles"],
+        "character_roles": response["character_roles"],
         "content": None,
         "status": story.status.value,
     }
@@ -155,8 +188,10 @@ async def update_story_basic_details(
     # Update fields if they are provided
     if story_update.title:
         story.title = story_update.title
+        story.optimized_title = None
     if story_update.description:
         story.description = story_update.description
+        story.optimized_description = None
 
     story.updated_at = datetime.now()
 
@@ -167,11 +202,103 @@ async def update_story_basic_details(
     return {
         "id": story.id,
         "title": story.title,
-        "refined_title": story.refined_title,
+        "optimized_title": story.optimized_title,
         "description": story.description,
-        "refined_description": story.refined_description,
+        "optimized_description": story.optimized_description,
         "character_ids": story.character_ids,
         "character_roles": story.character_roles,
-        "content": story.content,
-        "status": story.status,
+        "content": None,
+        "status": story.status.value,
     }
+
+
+@router.get("/", response_model=List[StoryResponse])
+async def get_stories(
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(active_user),
+):
+    """Get all stories for the authenticated user."""
+    query = select(Story).where(Story.user_id == user.id)
+    result = await db.execute(query)
+    stories = result.scalars().all()
+
+    return stories
+
+
+@router.get("/{story_id}", response_model=StoryResponse)
+async def get_story(
+    story_id: str,
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(active_user),
+):
+    """Get a story by ID."""
+    query = select(Story).where(
+        Story.id == story_id,
+        Story.user_id == user.id,
+    )
+    result = await db.execute(query)
+    story = result.scalars().first()
+
+    if not story:
+        raise HTTPException(status_code=404, detail="Story not found.")
+
+    return story
+
+
+@router.delete("/{story_id}")
+async def delete_story(
+    story_id: str,
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(active_user),
+):
+    """Delete a story by ID."""
+    query = select(Story).where(
+        Story.id == story_id,
+        Story.user_id == user.id,
+    )
+    result = await db.execute(query)
+    story = result.scalars().first()
+
+    if not story:
+        raise HTTPException(status_code=404, detail="Story not found.")
+
+    db.delete(story)
+    await db.commit()
+
+    return {"message": "Story deleted successfully."}
+
+@router.post("/{story_id}/content", response_model=StoryResponse)
+async def create_story_content(
+        story_id: str,
+        db: AsyncSession = Depends(get_async_session),
+        user: User = Depends(active_user),
+    ):
+        """Update the content of a story."""
+        # Fetch the story
+        query = select(Story).where(
+            Story.id == story_id,
+            Story.user_id == user.id,
+        )
+        result = await db.execute(query)
+        story = result.scalars().first()
+        if not story:
+            raise HTTPException(status_code=404, detail="Story not found.")
+        
+        content = "This is a test content."
+        # Update the content
+        story.content = content
+        story.updated_at = datetime.now()
+        # Commit the changes
+        await db.commit()
+        await db.refresh(story)
+        return {
+            "id": story.id,
+            "title": story.title,
+            "optimized_title": story.optimized_title,
+            "description": story.description,
+            "optimized_description": story.optimized_description,
+            "character_ids": story.character_ids,
+            "character_roles": story.character_roles,
+            "content": story.content,
+            "status": story.status.value,
+        }

@@ -97,52 +97,69 @@ async def generate_story_details_with_openai(
     )
 
     prompt = f"""
-    Refine the following story details and enhance the narrative elements. Return your response in a JSON object format, ensuring each component is thoughtfully improved:
+Refine the following story details based on the examples provided. Return your response in a JSON object format, ensuring each component is thoughtfully improved:
 
-- **Title**: Provide a more captivating and relevant title that reflects the theme and intrigue of the story.
-- **Description**: Expand the story description to include more detailed and vivid elements that capture the essence of the plot and setting. Make sure the description is engaging and sets the tone for the story.
-- **Characters**: Provide each character and suggest key roles and enhancements for their descriptions in a json formatted dictionary. Describe how each character contributes to the story and their relationships with other characters. Based on the provided character descriptions, enhance their personalities, traits, and dynamics to make them more compelling and relatable to young readers.
+### Example 1
+- **Original Title**: "Ocean Adventures"
+- **Original Description**: "A young sailor ventures into uncharted waters."
+- **Characters**: 
+  - Name: Sam, Description: "Curious young sailor", Traits: {{"curiosity": "high", "bravery": "moderate"}}, Story Context: "Exploring the Pacific."
+- **Enhanced Title**: "Mysteries of the Deep"
+- **Enhanced Description**: "Sam, the brave young sailor, faces mythical creatures and discovers lost underwater cities in the vast Pacific."
+- **Enhanced Characters**:
+  - Name: Sam, Role: "Protagonist", Enhanced Description: "Sam's insatiable curiosity and bravery lead him to mythical discoveries.", Skills: {{"curiosity": "leads to hidden treasures", "bravery": "fights sea monsters"}}
+- **Reasoning**: The title and description are enhanced to reflect the adventurous and mythical elements of the story, which are likely to captivate young readers. Sam's traits of curiosity and bravery are emphasized to show his role in the narrative.
 
-Given Data:
-- Title: "{story.title}"
-- Description: "{story.description}"
-- Characters:
-  - {character_descriptions}
+### Example 2
+- **Original Title**: "Forest Whisperers"
+- **Original Description**: "Two friends uncover secrets of the enchanted forest."
+- **Characters**:
+  - Name: Ela, Description: "Wise and old", Traits: {{"wisdom": "very high", "kindness": "high"}}, Story Context: "Guiding through mystical woods."
+- **Enhanced Title**: "Echoes of the Ancient Woods"
+- **Enhanced Description**: "Ela and her friend navigate through mystical woods, uncovering ancient secrets and forming alliances with magical creatures."
+- **Enhanced Characters**:
+  - Name: Ela, Role: "Guide", Enhanced Description: "Ela uses her wisdom and kindness to protect and guide her friends through dangers of the enchanted forest.", Skills: {{"wisdom": "solves ancient puzzles", "kindness": "earns trust of forest spirits"}}
+- **Reasoning**: Enhancements focus on the magical and mysterious aspects of the forest. Ela's character is developed to highlight her wisdom and kindness, essential for guiding through mystical settings and engaging young readers.
 
-**Important Guidelines**:
-1. Enhancements should be creative, detailed, and align with the theme of the story.
-2. All responses must be in English.
-3. Format your response as a JSON object with the following structure:
+### New Task
+Given Data for Enhancement:
+- **Title**: "{story.title}"
+- **Description**: "{story.description}"
+- **Characters**:
+  {character_descriptions}
 
+**Chain of Thought Approach**:
+1. **Title Enhancement**:
+   - **Current Title Analysis**: Reflect on how the existing title connects with the story's theme.
+   - **Task**: Generate a title that is both intriguing and reflective of the adventure or mystery within the story.
+
+2. **Description Enhancement**:
+   - **Detailed Scene Setting**: Consider elements that make the story more vivid and engaging.
+   - **Task**: Expand the description to include sensory details that paint a richer picture of the environment and action.
+
+3. **Character Enhancement**:
+   - **Character Contribution Review**: Assess how each character's traits and actions contribute to the story's progress.
+   - **Task**: Suggest detailed roles for each character, enhancing their descriptions to better fit their contributions and relationships within the story.
+
+**Output the refined elements in a structured JSON object**:
 ```json
 {{
-  "optimized_title": "Enhanced title that captures the essence of the story",
-  "optimized_description": "Detailed and expanded description providing a deeper insight into the plot and setting",
-  "character_roles":
+  "optimized_title": "Suggested new title",
+  "optimized_description": "Enhanced description providing a deeper insight into the plot and setting",
+  "character_roles": [
     {{
       "name": "Character Name",
-      "role": "Described role and key contributions to the story",
-      "enhanced_description": "Expanded character description highlighting personality traits and dynamics with other characters"
+      "role": "Suggested role and key contributions",
+      "enhanced_description": "Expanded personality traits and dynamics",
       "skills": {{
-          "curiousity": "Describes how curiosity leads to fun and learning.",
-          "empathy": "Shows how empathy helps the character understand others' feelings.",
-          "bravery": "Highlights how bravery is fun and rewarding.",
-          "cunning": "Illustrates the character's imaginative and inventive nature.",
-          resolution: "Shows how determination helps the character overcome challenges."
-          }}
-    }},
-    {{
-      "name": "Another Character Name",
-      "role": "Described role and key contributions to the story",
-      "enhanced_description": "Expanded character description highlighting personality traits and dynamics with other characters"
-     "skills": {{
-          "curiousity": "Describes how curiosity leads to fun and learning.",
-          "empathy": "Shows how empathy helps the character understand others' feelings.",
-          "bravery": "Highlights how bravery is fun and rewarding.",
-          "cunning": "Illustrates the character's imaginative and inventive nature.",
-          resolution: "Shows how determination helps the character overcome challenges."
-          }}
-    }}
+        "curiosity": "Describes how curiosity leads to fun and educational adventures.",
+        "empathy": "Shows how empathy helps the character understand others' feelings.",
+        "bravery": "Highlights how bravery assists in overcoming challenges.",
+        "cunning": "Illustrates clever solutions to problems faced.",
+        "resolution": "Emphasizes persistence in achieving goals."
+      }}
+    }}]
+  
 }}"""
     try:
 
