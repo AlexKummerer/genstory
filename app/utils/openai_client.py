@@ -6,12 +6,22 @@ from dotenv import load_dotenv
 from openai import OpenAI
 import openai
 from openai.resources.chat.completions import ChatCompletion
+
+from openai.resources.beta.chat.completions import ParsedChatCompletion
 from pydantic import BaseModel
 from sqlalchemy import Sequence
 
 from app.db.db import Character, Story
+from typing import Dict
 
 load_dotenv()
+
+
+class EnhancedCharacter(BaseModel):
+    optimized_name: str
+    optimized_description: str
+    optimized_traits: dict
+    optimized_story_context: str
 
 
 class CharacterUpdateInput(BaseModel):
@@ -40,7 +50,7 @@ async def generate_character_with_openai(character_data: Character) -> Any:
 
     try:
 
-        response: ChatCompletion = client.chat.completions.create(
+        response = client.beta.chat.completions.parse(
             messages=[
                 {
                     "role": "system",
@@ -51,34 +61,33 @@ async def generate_character_with_openai(character_data: Character) -> Any:
                     "content": prompt,
                 },
             ],
-            response_format={
-                "type": "json_object",
-            },
+            response_format=EnhancedCharacter,
             # This is an example; adjust based on actual API requirements
             model="gpt-4o-mini",
         )
         print(response)
 
         if response.choices:
-            choice = response.choices[0]
-            message_content = choice.message.content
-            print("Message content:", json.loads(message_content))
-            chat_id = response.id  # Fetch the chat completion ID from the response
+            return response.choices[0].message.parsed
+    #         choice = response.choices[0]
+    #         message_content = choice.message.content
+    #         print("Message content:", json.loads(message_content))
+    #         chat_id = response.id  # Fetch the chat completion ID from the response
 
-            # Parsing the JSON string within the message content
-            try:
-                character_data = json.loads(message_content)
-                print("Character data parsed successfully:", character_data)
-                return character_data, chat_id  # Return both character data and chat ID
-            except json.JSONDecodeError:
-                print("Failed to decode character data:", message_content)
-                return None, chat_id  # Return None for character data and the chat ID
-        else:
-            print("No choices found in response.")
-            return (
-                None,
-                "No ID found",
-            )  # Return None for character data and indicate no ID found
+    #         # Parsing the JSON string within the message content
+    #         try:
+    #             character_data = json.loads(message_content)
+    #             print("Character data parsed successfully:", character_data)
+    #             return character_data, chat_id  # Return both character data and chat ID
+    #         except json.JSONDecodeError:
+    #             print("Failed to decode character data:", message_content)
+    #             return None, chat_id  # Return None for character data and the chat ID
+    #     else:
+    #         print("No choices found in response.")
+    #         return (
+    #             None,
+    #             "No ID found",
+    #         )  # Return None for character data and indicate no ID found
 
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
@@ -192,6 +201,94 @@ Given Data for Enhancement:
                 character_data = json.loads(message_content)
                 print("Character data parsed successfully:", character_data)
                 return character_data
+            except json.JSONDecodeError:
+                print("Failed to decode character data:", message_content)
+                return {}  # Return an empty dictionary instead of None
+        else:
+            print("No choices found in response.")
+            return {}
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        return {}
+
+
+async def generate_story_content(story: Story) -> List[str]:
+
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    prompt = f"""
+Given the refined inputs for a middle story, generate a narrative that is engaging, educational, and suitable for young readers, formatted as a sequence of sentences for a digital storybook. Each sentence should advance the narrative and be fit for displaying one at a time.
+
+### Inputs:
+- **Title**: "{story.title}"
+- **Description**: "{story.description}"
+- **Characters**:
+  {story.character_roles}  # Assuming character_roles is a list or description that explains each character's role.
+
+### Task:
+Craft a middle story using the inputs provided, ensuring that the narrative is educational, follows a logical sequence of events, and is displayed in a format suitable for digital storybooks:
+
+1. **Opening**: Set the scene based on the overall description. Introduce the main characters and the initial situation, making sure it captures the reader’s imagination.
+2. **Conflict**: Introduce a problem or challenge that the characters need to address or resolve, ensuring that this section includes elements that contribute to the story’s educational value.
+3. **Progression**: Detail the characters' efforts to resolve the conflict, emphasizing their interactions, the roles they play, and key events and turning points that provide learning opportunities.
+4. **Climax**: Lead the story to its most intense point where the outcome of the conflict is uncertain, while maintaining a child-friendly tone.
+5. **Resolution**: Conclude the story by resolving the conflict and reflecting on the outcome and any lessons learned, aligning with the story's educational themes.
+
+### Examples and Chain of Thought Process:
+Here are examples of how each part of the story could be structured:
+
+#### Example 1:
+- **Title**: "The Quest for the Mystic Orb"
+- **Opening**: "In the enchanted realm of Silvaria, young mage Lora discovers a map to the lost Mystic Orb."
+- **Conflict**: "The orb is believed to be hidden in the depths of the Shadow Forest, guarded by the ancient tree spirits."
+- **Progression**: "Lora, joined by her friend Riko, the inventor, navigates the forest, deciphering clues and overcoming magical barriers."
+- **Climax**: "They find the orb protected under a spell, which requires them to solve a puzzle showing the importance of teamwork and wisdom."
+- **Resolution**: "The spell breaks when they work together, highlighting the lesson that combined strengths bring greater success."
+
+#### New Task:
+Using the framework provided by the examples, develop your story by applying the same chain of thought to each segment:
+
+```json
+{{
+  "sentences": [
+    "Begin by setting the scene based on your overall description, introducing an imaginative setting.",
+    "Introduce your main characters and describe the initial problem or challenge they face.",
+    "Detail how the characters interact, learn, and begin to tackle the problem, incorporating educational elements.",
+    "Describe the climax where the tension or stakes are highest, focusing on how the characters apply their learned skills.",
+    "Resolve the conflict and conclude with a reflective ending that reinforces the educational theme."
+  ]
+}}
+"""
+    try:
+
+        response: ChatCompletion = client.chat.completions.create(
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a creative AI assistant specialized in storytelling and character creation for children's stories.",
+                },
+                {
+                    "role": "user",
+                    "content": prompt,
+                },
+            ],
+            response_format={
+                "type": "json_object",
+            },
+            # This is an example; adjust based on actual API requirements
+            model="gpt-4o-mini",
+        )
+
+        print(response)
+        if response.choices:
+            choice = response.choices[0]
+            message_content = choice.message.content
+            print("Message content:", json.loads(message_content))
+
+            # Parsing the JSON string within the message content
+            try:
+                story_content = json.loads(message_content["sentences"])
+                print("Character data parsed successfully:", story_content)
+                return story_content
             except json.JSONDecodeError:
                 print("Failed to decode character data:", message_content)
                 return {}  # Return an empty dictionary instead of None

@@ -7,6 +7,7 @@ from typing import List
 from app.db.db import CharacterStatus, Story, Character, User, get_async_session
 from app.users.user import active_user
 from app.utils.openai_client import (
+    generate_story_content,
     generate_story_details_with_openai,
 )
 
@@ -65,7 +66,7 @@ class StoryResponse(BaseModel):
     optimized_description: Optional[str]
     character_ids: List[str]
     character_roles: Optional[List[dict]]
-    content: Optional[str]
+    content: Optional[List[str]]
     status: str
 
 
@@ -267,38 +268,39 @@ async def delete_story(
 
     return {"message": "Story deleted successfully."}
 
+
 @router.post("/{story_id}/content", response_model=StoryResponse)
 async def create_story_content(
-        story_id: str,
-        db: AsyncSession = Depends(get_async_session),
-        user: User = Depends(active_user),
-    ):
-        """Update the content of a story."""
-        # Fetch the story
-        query = select(Story).where(
-            Story.id == story_id,
-            Story.user_id == user.id,
-        )
-        result = await db.execute(query)
-        story = result.scalars().first()
-        if not story:
-            raise HTTPException(status_code=404, detail="Story not found.")
-        
-        content = "This is a test content."
-        # Update the content
-        story.content = content
-        story.updated_at = datetime.now()
-        # Commit the changes
-        await db.commit()
-        await db.refresh(story)
-        return {
-            "id": story.id,
-            "title": story.title,
-            "optimized_title": story.optimized_title,
-            "description": story.description,
-            "optimized_description": story.optimized_description,
-            "character_ids": story.character_ids,
-            "character_roles": story.character_roles,
-            "content": story.content,
-            "status": story.status.value,
-        }
+    story_id: str,
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(active_user),
+):
+    """Update the content of a story."""
+    # Fetch the story
+    query = select(Story).where(
+        Story.id == story_id,
+        Story.user_id == user.id,
+    )
+    result = await db.execute(query)
+    story = result.scalars().first()
+    if not story:
+        raise HTTPException(status_code=404, detail="Story not found.")
+
+    content = await generate_story_content(story)
+    # Update the content
+    story.content = content
+    story.updated_at = datetime.now()
+    # Commit the changes
+    await db.commit()
+    await db.refresh(story)
+    return {
+        "id": story.id,
+        "title": story.title,
+        "optimized_title": story.optimized_title,
+        "description": story.description,
+        "optimized_description": story.optimized_description,
+        "character_ids": story.character_ids,
+        "character_roles": story.character_roles,
+        "content": story.content,
+        "status": story.status.value,
+    }

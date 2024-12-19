@@ -43,6 +43,7 @@ class StoryStatus(str, enum.Enum):
 
 class User(SQLAlchemyBaseUserTableUUID, Base):
     __tablename__ = "users"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     username = Column(String(20), unique=False, index=True)
     email = Column(String(100), unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
@@ -92,7 +93,7 @@ class Story(Base):
     optimized_description = Column(Text, nullable=True)
     character_ids = Column(JSON, nullable=True)  # Store related character IDs
     character_roles = Column(JSON, nullable=True)  # Stores roles for each character
-    content = Column(Text, nullable=True)
+    content = Column(JSON, nullable=True)
     status = Column(
         SQLAlchemyEnum(StoryStatus), nullable=False, default=StoryStatus.draft
     )
