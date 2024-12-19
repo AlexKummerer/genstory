@@ -5,7 +5,7 @@ from typing import Any, Coroutine
 from groq import AsyncGroq, Groq
 from pydantic import BaseModel
 
-from app.db.db import Character
+from app.db.models import Character
 
 
 class CharacterUpdateInput(BaseModel):

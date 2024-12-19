@@ -4,7 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from typing import List
-from app.db.db import CharacterStatus, Story, Character, User, get_async_session
+from app.db.models import CharacterStatus, Story, Character, User
+from app.db.db import get_async_session
 from app.users.user import active_user
 from app.utils.openai_client import (
     generate_story_content,

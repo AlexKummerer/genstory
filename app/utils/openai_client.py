@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Any, Coroutine, List, Optional
+from typing import Any, Coroutine, List, Optional, Dict
 
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -10,17 +10,23 @@ from openai.resources.chat.completions import ChatCompletion
 from openai.resources.beta.chat.completions import ParsedChatCompletion
 from pydantic import BaseModel
 from sqlalchemy import Sequence
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.core.config import settings
+from app.db.models import Character, Story
 
-from app.db.db import Character, Story
-from typing import Dict
 
 load_dotenv()
+
+
+class Trait(BaseModel):
+    name: str
+    value: str
 
 
 class EnhancedCharacter(BaseModel):
     optimized_name: str
     optimized_description: str
-    optimized_traits: dict
+    optimized_traits: list[Trait]
     optimized_story_context: str
 
 
@@ -45,7 +51,7 @@ class MathReasoning(BaseModel):
 
 
 async def generate_character_with_openai(character_data: Character) -> Any:
-    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    client = OpenAI(api_key=cofig)
     prompt = structured_char_prompt(character_data)
 
     try:
@@ -68,7 +74,8 @@ async def generate_character_with_openai(character_data: Character) -> Any:
         print(response)
 
         if response.choices:
-            return response.choices[0].message.parsed
+            print(response.choices[0].message.parsed)
+            return response.choices[0].message.parsed.optimized_name , response.id
     #         choice = response.choices[0]
     #         message_content = choice.message.content
     #         print("Message content:", json.loads(message_content))
