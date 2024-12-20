@@ -9,7 +9,6 @@ class UserRead(BaseUser):
     is_verified: bool = False  # Default value provided
 
 
-
 class UserCreate(BaseUserCreate):
     username: str
     is_active: bool = True  # Default value provided

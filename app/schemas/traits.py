@@ -2,13 +2,13 @@ from pydantic import BaseModel
 
 
 class Trait(BaseModel):
-    name: str
-    value: str
+    trait_title: str
+    trait_value: str
 
     class Config:
         schema_extra = {
             "example": {
-                "name": "Bravery",
-                "value": "High",
+                "trait_title": "Bravery",
+                "trait_value": "High",
             }
         }

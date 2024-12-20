@@ -3,11 +3,11 @@ from fastapi import APIRouter, HTTPException, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from typing import List, Optional
-from app.db.models import CharacterStatus, User
+from app.db.models import Character, CharacterStatus, User
 from app.db.db import get_async_session
 from app.services.character_service import CharacterService
 from app.schemas.characters import CharacterInput, CharacterResponse
-from app.users.user import active_user
+from app.users.user import active_user, fastapi_users
 
 router = APIRouter()
 
@@ -16,12 +16,11 @@ router = APIRouter()
 async def create_character(
     data: CharacterInput,
     db: AsyncSession = Depends(get_async_session),
-    user: User = Depends(active_user),
+    user: User = Depends(fastapi_users.current_user(active=True)),
 ):
     """Create a new character with draft status."""
-    print("data", data)
-    print("db", db)
     try:
+        print("data", data)
         return await CharacterService.create_character(data, db, user)
     except Exception as e:
         raise HTTPException(

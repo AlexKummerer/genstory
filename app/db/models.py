@@ -2,6 +2,7 @@ import enum
 import uuid
 from datetime import datetime
 from sqlalchemy import (
+    UUID,
     Boolean,
     Column,
     String,
@@ -44,7 +45,7 @@ class StoryStatus(str, enum.Enum):
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     username = Column(String(20), nullable=False, index=True)
     email = Column(String(100), nullable=False, unique=True, index=True)
     hashed_password = Column(String, nullable=False)
@@ -63,7 +64,10 @@ class User(Base):
 class Character(BaseModel):
     __tablename__ = "characters"
 
-    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    id = Column(
+        String, primary_key=True, default=lambda: str(uuid.uuid4())
+    )  # UUID as String
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     character_name = Column(String(100), nullable=True)
     optimized_name = Column(String(100), nullable=True)
     character_description = Column(Text, nullable=True)
@@ -87,9 +91,11 @@ class Character(BaseModel):
         return {
             "id": self.id,
             "name": self.character_name,
+            "optimized_name": self.optimized_name,
             "description": self.character_description,
+            "optimized_description": self.optimized_description,
             "traits": traits,
-            "story_context": self.character_story_context,
+            "optimized_traits": self.optimized_traits,
             "status": self.status.value,
         }
 
@@ -97,7 +103,8 @@ class Character(BaseModel):
 class Story(BaseModel):
     __tablename__ = "stories"
 
-    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     title = Column(String(255), nullable=False)
     optimized_title = Column(String(255), nullable=True)
     description = Column(Text, nullable=True)

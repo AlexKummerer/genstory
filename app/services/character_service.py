@@ -7,17 +7,24 @@ from app.db.models import Character, CharacterStatus, User
 from app.schemas.characters import CharacterInput
 from app.utils.openai_client import generate_character_with_openai
 
+
 class CharacterService:
     @staticmethod
     async def create_character(data: CharacterInput, db: AsyncSession, user: User):
         """Create a new character with draft status."""
         try:
+
+            traits = (
+                [trait.model_dump() for trait in data.traits] if data.traits else None
+            )
+
+            print("traits", traits)
+
             new_character = Character(
                 id=str(uuid4()),
                 character_name=data.name,
                 character_description=data.description,
-                character_traits=data.traits,
-                character_story_context=data.story_context,
+                character_traits=traits,
                 user_id=user.id,
                 status=CharacterStatus.draft,
                 created_at=datetime.now(timezone.utc),
@@ -26,7 +33,8 @@ class CharacterService:
             db.add(new_character)
             await db.commit()
             await db.refresh(new_character)
-            return new_character
+            print("new_character", new_character.to_response())
+            return new_character.to_response()
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -37,30 +45,37 @@ class CharacterService:
     async def generate_character(character_id: str, db: AsyncSession, user: User):
         """Generate traits, context, and summary for a draft character."""
         try:
-            query = select(Character).where(Character.id == character_id, Character.user_id == user.id)
+            query = select(Character).where(
+                Character.id == character_id, Character.user_id == user.id
+            )
             result = await db.execute(query)
             character = result.scalars().first()
 
             if not character:
                 raise HTTPException(status_code=404, detail="Character not found")
-            if character.status not in {CharacterStatus.draft, CharacterStatus.generated}:
+            if character.status not in {
+                CharacterStatus.draft,
+                CharacterStatus.generated,
+            }:
                 raise HTTPException(
-                    status_code=400, detail="Character must be in draft or generated status."
+                    status_code=400,
+                    detail="Character must be in draft or generated status.",
                 )
 
-            generated_data, chat_id = await generate_character_with_openai(character)
+            generated_data = await generate_character_with_openai(character)
 
             character.optimized_name = generated_data["optimized_name"]
             character.optimized_description = generated_data["optimized_description"]
-            character.chat_id = chat_id
             character.optimized_traits = generated_data["optimized_traits"]
-            character.optimized_story_context = generated_data["optimized_story_context"]
+            character.optimized_story_context = generated_data[
+                "optimized_story_context"
+            ]
             character.status = CharacterStatus.generated
             character.updated_at = datetime.now(timezone.utc)
 
             await db.commit()
             await db.refresh(character)
-            return character
+            return character.to_response()
         except HTTPException as e:
             raise e
         except Exception as e:
@@ -70,10 +85,14 @@ class CharacterService:
             )
 
     @staticmethod
-    async def update_character(character_id: str, data: CharacterInput, db: AsyncSession, user: User):
+    async def update_character(
+        character_id: str, data: CharacterInput, db: AsyncSession, user: User
+    ):
         """Update character details."""
         try:
-            query = select(Character).where(Character.id == character_id, Character.user_id == user.id)
+            query = select(Character).where(
+                Character.id == character_id, Character.user_id == user.id
+            )
             result = await db.execute(query)
             character = result.scalars().first()
 
@@ -88,16 +107,16 @@ class CharacterService:
             character.optimized_name = None
             character.character_description = data.description
             character.optimized_description = None
-            character.character_traits = data.traits
+            character.character_traits = (
+                [trait.model_dump() for trait in data.traits] if data.traits else None
+            )
             character.optimized_traits = None
-            character.character_story_context = data.story_context
-            character.optimized_story_context = None
             character.status = CharacterStatus.generated
             character.updated_at = datetime.now(timezone.utc)
 
             await db.commit()
             await db.refresh(character)
-            return character
+            return character.to_response()
         except HTTPException as e:
             raise e
         except Exception as e:
@@ -110,7 +129,9 @@ class CharacterService:
     async def finalize_character(character_id: str, db: AsyncSession, user: User):
         """Finalize a character to prevent further modifications."""
         try:
-            query = select(Character).where(Character.id == character_id, Character.user_id == user.id)
+            query = select(Character).where(
+                Character.id == character_id, Character.user_id == user.id
+            )
             result = await db.execute(query)
             character = result.scalars().first()
 
@@ -118,7 +139,8 @@ class CharacterService:
                 raise HTTPException(status_code=404, detail="Character not found")
             if character.status != CharacterStatus.generated:
                 raise HTTPException(
-                    status_code=400, detail="Only generated characters can be finalized."
+                    status_code=400,
+                    detail="Only generated characters can be finalized.",
                 )
 
             character.status = CharacterStatus.finalized
@@ -126,7 +148,7 @@ class CharacterService:
 
             await db.commit()
             await db.refresh(character)
-            return character
+            return character.to_response()
         except HTTPException as e:
             raise e
         except Exception as e:
@@ -142,13 +164,20 @@ class CharacterService:
         """Fetch all characters for a user, optionally filtered by status."""
         try:
             offset = (page - 1) * size
-            query = select(Character).where(Character.user_id == user.id).offset(offset).limit(size)
+            query = (
+                select(Character)
+                .where(Character.user_id == user.id)
+                .offset(offset)
+                .limit(size)
+            )
 
             if status:
                 query = query.where(Character.status == status)
 
             result = await db.execute(query)
-            return result.scalars().all()
+            characters = result.scalars().all()
+            return [character.to_response() for character in characters]
+
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -159,14 +188,16 @@ class CharacterService:
     async def get_character_by_id(character_id: str, db: AsyncSession, user: User):
         """Fetch a character by ID."""
         try:
-            query = select(Character).where(Character.id == character_id, Character.user_id == user.id)
+            query = select(Character).where(
+                Character.id == character_id, Character.user_id == user.id
+            )
             result = await db.execute(query)
             character = result.scalars().first()
 
             if not character:
                 raise HTTPException(status_code=404, detail="Character not found")
 
-            return character
+            return character.to_response()
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -177,7 +208,9 @@ class CharacterService:
     async def delete_character(character_id: str, db: AsyncSession, user: User):
         """Delete a character by ID."""
         try:
-            query = select(Character).where(Character.id == character_id, Character.user_id == user.id)
+            query = select(Character).where(
+                Character.id == character_id, Character.user_id == user.id
+            )
             result = await db.execute(query)
             character = result.scalars().first()
 
