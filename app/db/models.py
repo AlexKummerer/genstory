@@ -37,9 +37,10 @@ class CharacterStatus(str, enum.Enum):
 
 class StoryStatus(str, enum.Enum):
     draft = "draft"
+    generated = "generated"
+    finalized = "finalized"
     published = "published"
     archived = "archived"
-    updated = "updated"
 
 
 class User(Base):
@@ -120,3 +121,16 @@ class Story(BaseModel):
     )
 
     user = relationship("User", back_populates="stories")
+
+    def to_response(self):
+        return {
+            "id": self.id,
+            "title": self.title,
+            "optimized_title": self.optimized_title,
+            "description": self.description,
+            "optimized_description": self.optimized_description,
+            "character_ids": self.character_ids,
+            "character_roles": self.character_roles,
+            "content": self.content,
+            "status": self.status.value,
+        }

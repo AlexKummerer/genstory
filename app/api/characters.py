@@ -20,7 +20,6 @@ async def create_character(
 ):
     """Create a new character with draft status."""
     try:
-        print("data", data)
         return await CharacterService.create_character(data, db, user)
     except Exception as e:
         raise HTTPException(

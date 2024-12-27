@@ -19,6 +19,58 @@ from app.schemas.traits import Trait
 load_dotenv()
 
 
+class Skill(BaseModel):
+    skill_name: str  # Name of the skill (e.g., curiosity, bravery)
+    skill_description: (
+        str  # Description of the skill and how it contributes to the story
+    )
+
+
+class CharacterRole(BaseModel):
+    name: str
+    role: str
+    enhanced_description: str
+    skills: List[Skill]  # List of skills instead of a dictionary
+    motivations: str
+    flaws: str
+    interactions: str
+
+
+class Test(BaseModel):
+    test_name: str
+    description: str
+
+
+class MiddleSection(BaseModel):
+    setting_out: str
+    encounter_with_challenges: str
+    tests: List[Test]
+
+
+class StoryStructure(BaseModel):
+    introduction: str
+    middle: MiddleSection  # Structured middle as per requirements
+    climax: str
+    conclusion: str
+    lessons: List[str]
+
+
+class FullStoryDetails(BaseModel):
+    story_structure: StoryStructure
+    full_story: str
+
+
+class EnhancedStoryDetails(BaseModel):
+    optimized_title: str
+    optimized_description: str
+    character_roles: List[CharacterRole]
+
+
+class EnhancedStory(BaseModel):
+    enhanced_details: EnhancedStoryDetails
+    story_details: FullStoryDetails
+
+
 class EnhancedCharacter(BaseModel):
     optimized_name: str
     optimized_description: str
@@ -68,7 +120,7 @@ async def generate_character_with_openai(character_data: Character) -> Dict[str,
         return parsed_response
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
-        return None, "No ID found"
+        return None
 
 
 async def generate_story_details_with_openai(
@@ -77,79 +129,11 @@ async def generate_story_details_with_openai(
 
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-    character_descriptions = "\n".join(
-        f"- Name : {c.character_name}, Description {c.character_description}, Traits: {c.character_traits}, Story Context:  {c.character_story_context}"
-        for c in characters
-    )
+    prompt = story_details_prompt(characters, story)
 
-    prompt = f"""
-Refine the following story details based on the examples provided. Return your response in a JSON object format, ensuring each component is thoughtfully improved:
-
-### Example 1
-- **Original Title**: "Ocean Adventures"
-- **Original Description**: "A young sailor ventures into uncharted waters."
-- **Characters**: 
-  - Name: Sam, Description: "Curious young sailor", Traits: {{"curiosity": "high", "bravery": "moderate"}}, Story Context: "Exploring the Pacific."
-- **Enhanced Title**: "Mysteries of the Deep"
-- **Enhanced Description**: "Sam, the brave young sailor, faces mythical creatures and discovers lost underwater cities in the vast Pacific."
-- **Enhanced Characters**:
-  - Name: Sam, Role: "Protagonist", Enhanced Description: "Sam's insatiable curiosity and bravery lead him to mythical discoveries.", Skills: {{"curiosity": "leads to hidden treasures", "bravery": "fights sea monsters"}}
-- **Reasoning**: The title and description are enhanced to reflect the adventurous and mythical elements of the story, which are likely to captivate young readers. Sam's traits of curiosity and bravery are emphasized to show his role in the narrative.
-
-### Example 2
-- **Original Title**: "Forest Whisperers"
-- **Original Description**: "Two friends uncover secrets of the enchanted forest."
-- **Characters**:
-  - Name: Ela, Description: "Wise and old", Traits: {{"wisdom": "very high", "kindness": "high"}}, Story Context: "Guiding through mystical woods."
-- **Enhanced Title**: "Echoes of the Ancient Woods"
-- **Enhanced Description**: "Ela and her friend navigate through mystical woods, uncovering ancient secrets and forming alliances with magical creatures."
-- **Enhanced Characters**:
-  - Name: Ela, Role: "Guide", Enhanced Description: "Ela uses her wisdom and kindness to protect and guide her friends through dangers of the enchanted forest.", Skills: {{"wisdom": "solves ancient puzzles", "kindness": "earns trust of forest spirits"}}
-- **Reasoning**: Enhancements focus on the magical and mysterious aspects of the forest. Ela's character is developed to highlight her wisdom and kindness, essential for guiding through mystical settings and engaging young readers.
-
-### New Task
-Given Data for Enhancement:
-- **Title**: "{story.title}"
-- **Description**: "{story.description}"
-- **Characters**:
-  {character_descriptions}
-
-**Chain of Thought Approach**:
-1. **Title Enhancement**:
-   - **Current Title Analysis**: Reflect on how the existing title connects with the story's theme.
-   - **Task**: Generate a title that is both intriguing and reflective of the adventure or mystery within the story.
-
-2. **Description Enhancement**:
-   - **Detailed Scene Setting**: Consider elements that make the story more vivid and engaging.
-   - **Task**: Expand the description to include sensory details that paint a richer picture of the environment and action.
-
-3. **Character Enhancement**:
-   - **Character Contribution Review**: Assess how each character's traits and actions contribute to the story's progress.
-   - **Task**: Suggest detailed roles for each character, enhancing their descriptions to better fit their contributions and relationships within the story.
-
-**Output the refined elements in a structured JSON object**:
-```json
-{{
-  "optimized_title": "Suggested new title",
-  "optimized_description": "Enhanced description providing a deeper insight into the plot and setting",
-  "character_roles": [
-    {{
-      "name": "Character Name",
-      "role": "Suggested role and key contributions",
-      "enhanced_description": "Expanded personality traits and dynamics",
-      "skills": {{
-        "curiosity": "Describes how curiosity leads to fun and educational adventures.",
-        "empathy": "Shows how empathy helps the character understand others' feelings.",
-        "bravery": "Highlights how bravery assists in overcoming challenges.",
-        "cunning": "Illustrates clever solutions to problems faced.",
-        "resolution": "Emphasizes persistence in achieving goals."
-      }}
-    }}]
-  
-}}"""
     try:
 
-        response: ChatCompletion = client.chat.completions.create(
+        response = client.beta.chat.completions.parse(
             messages=[
                 {
                     "role": "system",
@@ -160,84 +144,33 @@ Given Data for Enhancement:
                     "content": prompt,
                 },
             ],
-            response_format={
-                "type": "json_object",
-            },
+            response_format=EnhancedStoryDetails,
             # This is an example; adjust based on actual API requirements
             model="gpt-4o-mini",
         )
 
         print(response)
-        if response.choices:
-            choice = response.choices[0]
-            message_content = choice.message.content
-            print("Message content:", json.loads(message_content))
 
-            # Parsing the JSON string within the message content
-            try:
-                character_data = json.loads(message_content)
-                print("Character data parsed successfully:", character_data)
-                return character_data
-            except json.JSONDecodeError:
-                print("Failed to decode character data:", message_content)
-                return {}  # Return an empty dictionary instead of None
-        else:
-            print("No choices found in response.")
-            return {}
+        if not response.choices:
+            raise ValueError("No choices found Open Ai response")
+
+        result = response.choices[0].message.content
+        parsed_response = json.loads(result)
+
+        return parsed_response
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
         return {}
 
 
-async def generate_story_content(story: Story) -> List[str]:
+async def generate_story_content(story: Story) -> EnhancedStory:
 
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-    prompt = f"""
-Given the refined inputs for a middle story, generate a narrative that is engaging, educational, and suitable for young readers, formatted as a sequence of sentences for a digital storybook. Each sentence should advance the narrative and be fit for displaying one at a time.
+    prompt = story_content_prompt(story)
 
-### Inputs:
-- **Title**: "{story.title}"
-- **Description**: "{story.description}"
-- **Characters**:
-  {story.character_roles}  # Assuming character_roles is a list or description that explains each character's role.
-
-### Task:
-Craft a middle story using the inputs provided, ensuring that the narrative is educational, follows a logical sequence of events, and is displayed in a format suitable for digital storybooks:
-
-1. **Opening**: Set the scene based on the overall description. Introduce the main characters and the initial situation, making sure it captures the reader’s imagination.
-2. **Conflict**: Introduce a problem or challenge that the characters need to address or resolve, ensuring that this section includes elements that contribute to the story’s educational value.
-3. **Progression**: Detail the characters' efforts to resolve the conflict, emphasizing their interactions, the roles they play, and key events and turning points that provide learning opportunities.
-4. **Climax**: Lead the story to its most intense point where the outcome of the conflict is uncertain, while maintaining a child-friendly tone.
-5. **Resolution**: Conclude the story by resolving the conflict and reflecting on the outcome and any lessons learned, aligning with the story's educational themes.
-
-### Examples and Chain of Thought Process:
-Here are examples of how each part of the story could be structured:
-
-#### Example 1:
-- **Title**: "The Quest for the Mystic Orb"
-- **Opening**: "In the enchanted realm of Silvaria, young mage Lora discovers a map to the lost Mystic Orb."
-- **Conflict**: "The orb is believed to be hidden in the depths of the Shadow Forest, guarded by the ancient tree spirits."
-- **Progression**: "Lora, joined by her friend Riko, the inventor, navigates the forest, deciphering clues and overcoming magical barriers."
-- **Climax**: "They find the orb protected under a spell, which requires them to solve a puzzle showing the importance of teamwork and wisdom."
-- **Resolution**: "The spell breaks when they work together, highlighting the lesson that combined strengths bring greater success."
-
-#### New Task:
-Using the framework provided by the examples, develop your story by applying the same chain of thought to each segment:
-
-```json
-{{
-  "sentences": [
-    "Begin by setting the scene based on your overall description, introducing an imaginative setting.",
-    "Introduce your main characters and describe the initial problem or challenge they face.",
-    "Detail how the characters interact, learn, and begin to tackle the problem, incorporating educational elements.",
-    "Describe the climax where the tension or stakes are highest, focusing on how the characters apply their learned skills.",
-    "Resolve the conflict and conclude with a reflective ending that reinforces the educational theme."
-  ]
-}}
-"""
     try:
 
-        response: ChatCompletion = client.chat.completions.create(
+        response: ChatCompletion = client.beta.chat.completions.parse(
             messages=[
                 {
                     "role": "system",
@@ -248,30 +181,20 @@ Using the framework provided by the examples, develop your story by applying the
                     "content": prompt,
                 },
             ],
-            response_format={
-                "type": "json_object",
-            },
+            response_format=FullStoryDetails,
             # This is an example; adjust based on actual API requirements
             model="gpt-4o-mini",
         )
 
         print(response)
-        if response.choices:
-            choice = response.choices[0]
-            message_content = choice.message.content
-            print("Message content:", json.loads(message_content))
 
-            # Parsing the JSON string within the message content
-            try:
-                story_content = json.loads(message_content["sentences"])
-                print("Character data parsed successfully:", story_content)
-                return story_content
-            except json.JSONDecodeError:
-                print("Failed to decode character data:", message_content)
-                return {}  # Return an empty dictionary instead of None
-        else:
-            print("No choices found in response.")
-            return {}
+        if not response.choices:
+            raise ValueError("No choices found Open Ai response")
+
+        result = response.choices[0].message.content
+        parsed_response = json.loads(result)
+
+        return parsed_response
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
         return {}
@@ -356,5 +279,116 @@ def structured_char_prompt(character_data: Character) -> str:
   }}
 }}
 """
+
+    return prompt
+
+
+def story_details_prompt(characters: List[Character], story: Story) -> str:
+    character_descriptions = "\n".join(
+        f"- Name: {c.character_name}, Description: {c.character_description}, Traits: {c.character_traits}, Story Context: {c.character_story_context}"
+        for c in characters
+    )
+
+    prompt = f"""
+You are a storytelling assistant specialized in creating engaging and educational narratives. Refine the following story details and provide enhancements in a structured JSON format.
+
+### Input Details
+- **Title**: "{story.title}"
+- **Description**: "{story.description}"
+- **Characters**:
+{character_descriptions}
+
+### Output Requirements
+1. **Optimized Title**:
+   - Provide a refined version of the title that is captivating, relevant to the story's theme, and sparks curiosity.
+
+2. **Optimized Description**:
+   - Enhance the story description with vivid imagery and engaging elements. Include sensory details that make the plot and setting more immersive for readers.
+
+3. **Character Roles**:
+   - For each character, refine their details and clearly define their role in the story. Include:
+     - **Name**: Character’s name.
+     - **Role**: Their purpose and contributions to the narrative (e.g., Protagonist, Mentor).
+     - **Enhanced Description**: Detailed traits and unique characteristics.
+     - **Skills**: List their abilities, including:
+       - **Curiosity**: How curiosity aids their role.
+       - **Empathy**: How empathy influences their actions.
+       - **Bravery**: How bravery helps them overcome challenges.
+       - **Cunning**: How cleverness aids in problem-solving.
+       - **Resolution**: How persistence helps achieve goals.
+     - **Motivations**: What drives their actions and decisions.
+     - **Flaws**: Weaknesses or limitations that create depth and relatability.
+     - **Interactions**: How they interact with other characters and influence the story.
+
+4. **Reasoning**:
+   - For each enhancement (title, description, character roles), provide a brief explanation of why the changes improve the narrative.
+
+### Example Output
+```json
+{{
+  "optimized_title": "The Enchanted Forest Quest",
+  "optimized_description": "A magical journey through a vibrant forest where teamwork and bravery unlock hidden mysteries.",
+  "character_roles": [
+    {{
+      "name": "Lila",
+      "role": "Protagonist",
+      "enhanced_description": "Lila is a curious and brave young girl who embarks on a journey to save her village from a mysterious curse. Her determination and resourcefulness make her a natural leader.",
+      "skills": [
+        {{"name": "Curiosity", "description": "Helps her discover hidden clues and magical pathways."}},
+        {{"name": "Bravery", "description": "Enables her to face challenges and overcome her fears."}}
+      ],
+      "motivations": "To lift the curse and protect her family and friends.",
+      "flaws": "Her impulsive nature sometimes leads to risky decisions.",
+      "interactions": "Lila forms a close bond with the forest creatures, who guide her on her journey. She learns to rely on her friends and appreciate teamwork."
+    }},
+    {{
+      "name": "Elder Oak",
+      "role": "Mentor",
+      "enhanced_description": "A wise and ancient tree spirit who knows the secrets of the forest. Elder Oak provides guidance and imparts valuable lessons to Lila.",
+      "skills": [
+        {{"name": "Wisdom", "description": "Provides insights to solve riddles and avoid danger."}},
+        {{"name": "Magic", "description": "Uses his powers to protect Lila when she is in danger."}}
+      ],
+      "motivations": "To preserve the forest’s harmony and help Lila fulfill her destiny.",
+      "flaws": "He speaks in riddles, which sometimes confuses Lila and slows her progress.",
+      "interactions": "Elder Oak mentors Lila, helping her unlock her potential and teaching her the importance of patience and understanding."
+    }}
+  ],
+  "reasoning": {{
+    "title": "The refined title emphasizes the quest and mystery elements, making it more engaging for readers.",
+    "description": "The enhanced description adds sensory details and emotional depth, capturing the reader's imagination.",
+    "character_roles": "Each character’s role is clearly defined, making their contribution to the story cohesive and compelling."
+  }}
+}}"""
+
+    return prompt
+
+
+def story_content_prompt(story: Story) -> str:
+
+    thought_process = f"""
+ Step 1: Introduce the main characters ({', '.join([c["name"] for c in story.character_roles])}) and describe tgeir personalities, motivations, to the magical setting.
+ Step 2: Set up the magical world described in the story and hint at the mystery or challenge that the characters will face.
+ Step 3: Introduce the conflit or obstacle that will drive the story forward, and highlight how the characters will need to work together to overcome it.
+ Step 4 : Develop the story by detailing the characters' journey, including the challenges they face, the lessons they learn, and the friendships they form.
+  Step 5: Reach the climax of the story, where the characters face their greatest challenge and must use their skills and strengths to succeed.
+  Step 6: Conclude the story by resolving the conflict, highlighting the characters' growth and the lessons they have learned adn the rewards of their journey.
+    """
+
+    prompt = f"""
+    You are a famouse children's book author and you are tasked with creating a middle story for a children's book. The story should be engaging, educational, and suitable for young readers. Write a complete story titled "{story.title}" bassed on the following description and characters:
+    
+    ### Description:
+    {story.description}
+    
+    ### Characters:
+
+  {story.character_roles}  # Assuming character_roles is a list or description that explains each character's role.
+  
+  Here is a chain of thought process to guide you through the story development:
+  {thought_process}
+  
+  The story should be imaginative, playfule and suitable for children aged 6 - 10. Use vivid descriptions, engaging dialogue, and a child-friendly tone to captivate young readers. Ensure the story has a clear introduction, middle and resolution with lessons or morals that are relevant to the characters' journey.
+  """
 
     return prompt
