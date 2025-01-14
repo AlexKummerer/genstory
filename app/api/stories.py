@@ -6,7 +6,13 @@ from sqlalchemy.future import select
 from typing import List
 from app.db.models import CharacterStatus, Story, Character, StoryStatus, User
 from app.db.db import get_async_session
-from app.schemas.stories import StoryBasicUpdate, StoryInput, StoryResponse
+from app.schemas.stories import (
+    ImageDownloadResponse,
+    ImageResponse,
+    StoryBasicUpdate,
+    StoryInput,
+    StoryResponse,
+)
 from app.services.story_service import StoryService
 from app.users.user import active_user
 from app.utils.openai_client import (
@@ -120,4 +126,53 @@ async def create_story_content(
     try:
         return await StoryService.create_story_content(story_id, user, db)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to create story content: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to create story content: {str(e)}"
+        )
+
+
+@router.post("/{story_id}/cover_image", response_model=ImageResponse)
+async def create_story_cover_image(
+    story_id: str,
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(active_user),
+):
+    """Update the cover image of a story."""
+    try:
+        return await StoryService.create_story_cover_image(story_id, user, db)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to create story cover image: {str(e)}"
+        )
+
+
+@router.get("{story_id}/cover_image/", response_model=ImageResponse)
+async def get_cover_image(
+    story_id: str,
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(active_user),
+):
+    """Get the cover image of a story."""
+    try:
+        return await StoryService.get_cover_image(story_id, user, db)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to get story cover image: {str(e)}"
+        )
+
+
+@router.post("/{story_id}/download_cover_image", response_model=ImageDownloadResponse)
+async def download_cover_image(
+    story_id: str,
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(active_user),
+):
+    """Download the cover image of a story."""
+    try:
+        return await StoryService.download_cover_image(
+            story_id, user, db, download_route="downloads/story_covers"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to download story cover image: {str(e)}"
+        )

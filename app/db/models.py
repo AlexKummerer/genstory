@@ -113,6 +113,10 @@ class Story(BaseModel):
     character_ids = Column(JSON, nullable=True)
     character_roles = Column(JSON, nullable=True)
     content = Column(JSON, nullable=True)
+    cover_image_id = Column(
+        String, ForeignKey("images.id"), nullable=True
+    )  # Reference to the Image table
+
     status = Column(
         SQLAlchemyEnum(StoryStatus),
         nullable=False,
@@ -132,5 +136,22 @@ class Story(BaseModel):
             "character_ids": self.character_ids,
             "character_roles": self.character_roles,
             "content": self.content,
+            "cover_image_id": self.cover_image_id,
             "status": self.status.value,
+        }
+
+
+class Image(Base):
+    __tablename__ = "images"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    story_id = Column(String, nullable=False)
+    base64_data = Column(Text, nullable=False)  # Store base64 string here
+    created_at = Column(TIMESTAMP, default=datetime.utcnow, nullable=False)
+
+    def to_response(self):
+        return {
+            "id": self.id,
+            "story_id": self.story_id,
+            "base64_data": self.base64_data,
         }

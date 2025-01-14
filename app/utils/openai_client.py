@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from openai import OpenAI
 import openai
 from openai.resources.chat.completions import ChatCompletion
+from openai.resources.images import ImagesResponse
 
 from openai.resources.beta.chat.completions import ParsedChatCompletion
 from pydantic import BaseModel
@@ -76,6 +77,10 @@ class EnhancedCharacter(BaseModel):
     optimized_description: str
     optimized_traits: List[Trait]
     optimized_story_context: str
+
+
+class CoverImagePrompt(BaseModel):
+    prompt: str
 
 
 class CharacterUpdateInput(BaseModel):
@@ -198,6 +203,92 @@ async def generate_story_content(story: Story) -> EnhancedStory:
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
         return {}
+
+
+def generate_cover_image_prompt(story: Story) -> str:
+
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+    # Narrative-style meta-prompt
+    meta_prompt_narrative = f"""
+Using the following full story as input, craft a vivid, narrative-style prompt for an AI image generator to create a magical, storybook-like cover illustration.
+
+
+
+Full Story:
+{story.content["full_story"]}
+
+Focus on depicting a single, climactic moment that captures the heart of the story. Your description should vividly bring the scene to life, incorporating:
+
+The illustration should capture a single, climactic moment that conveys the heart of the story, bringing it to life with rich, imaginative details. Focus on creating an image that appeals to child and evokes a sense of wonder and adventure.
+
+Include the following:
+
+Setting: Describe the environment in intricate detail, emphasizing magical or whimsical elements, atmospheric lighting, and textures that align with the story’s adventurous tone.
+Characters: Paint a vivid picture of the characters—their appearance, actions, and emotional expressions—highlighting their interaction and bond.
+Action or Dynamic Interaction: Show movement, dramatic tension, or an emotional highlight to bring the scene to life.
+Perspective and Composition: Suggest a dynamic composition, such as a close-up of the characters or a wide-angle that incorporates the environment and action.
+Themes and Symbolism: Reflect key themes, such as friendship, bravery, and discovery, with symbolic elements (e.g., a glowing tree as a beacon of guidance).
+Mood and Emotional Tone: Clearly capture the mood (e.g., adventurous, comforting, or triumphant) with specific lighting and color palettes.
+Art Style: Specify the desired art style, such as whimsical and cartoonish, soft watercolor, or a vibrant storybook aesthetic.
+Magical Enhancements: Incorporate fantastical elements, like glowing butterflies, shimmering leaves, or enchanted lighting effects, to amplify the magic.
+Scalability for Text: Ensure space is left for the story’s title and author name, if needed, without crowding the focal point.
+Output the description as a single, cohesive paragraph, using immersive, narrative-driven language that feels inspiring and guides the artist in visualizing the scene.
+"""
+
+    try:
+
+        response: ChatCompletion = client.beta.chat.completions.parse(
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a creative assistant skilled in crafting vivid, narrative-style prompts for visual storytelling.",
+                },
+                {
+                    "role": "user",
+                    "content": meta_prompt_narrative,
+                },
+            ],
+            response_format=CoverImagePrompt,
+            # This is an example; adjust based on actual API requirements
+            model="gpt-4o-mini",
+        )
+
+        print(response)
+
+        if not response.choices:
+            raise ValueError("No choices found Open Ai response")
+
+        result = response.choices[0].message.content
+        parsed_response = json.loads(result)
+
+        return parsed_response
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        return {}
+
+
+def generate_cover_image(cover_image_prompt: str) -> str:
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+    try:
+        response: ImagesResponse = client.images.generate(
+            model="dall-e-3",
+            prompt=cover_image_prompt,
+            size="1024x1024",
+            quality="hd",
+            style="vivid",
+            response_format="b64_json",
+            n=1,
+        )
+
+        if not response.data:
+            raise ValueError("No data found in Open Ai response")
+        return response.data[0].b64_json
+
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        return None
 
 
 def structured_char_prompt(character_data: Character) -> str:

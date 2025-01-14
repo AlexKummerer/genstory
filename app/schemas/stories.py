@@ -14,6 +14,7 @@ class StoryResponse(BaseModel):
     character_ids: List[str]
     character_roles: Optional[List[CharacterRole]]
     content: Optional[FullStoryDetails]
+    cover_image: Optional[str]
     status: str
 
 
@@ -57,3 +58,13 @@ class StoryInput(BaseModel):
         if len(v) < 5:
             raise ValueError("Title should be at least 10 characters.")
         return v
+
+
+class ImageResponse(BaseModel):
+    id: str
+    story_id: str
+    base64_data: str
+
+class ImageDownloadResponse(BaseModel):
+    message: str
+    file_path: str
