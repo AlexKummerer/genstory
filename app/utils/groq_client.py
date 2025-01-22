@@ -39,7 +39,6 @@ async def generate_character_with_groq(character_data: Character) -> Any:
             },  # This is an example; adjust based on actual API requirements
             model="llama-3.1-70b-versatile",
         )
-        print(response)
 
         if response.choices:
             choice = response.choices[0]
@@ -49,20 +48,16 @@ async def generate_character_with_groq(character_data: Character) -> Any:
             # Parsing the JSON string within the message content
             try:
                 character_data = json.loads(message_content)
-                print("Character data parsed successfully:", character_data)
                 return character_data, chat_id  # Return both character data and chat ID
             except json.JSONDecodeError:
-                print("Failed to decode character data:", message_content)
                 return None, chat_id  # Return None for character data and the chat ID
         else:
-            print("No choices found in response.")
             return (
                 None,
                 "No ID found",
             )  # Return None for character data and indicate no ID found
 
     except Exception as e:
-        print(f"An unexpected error occurred: {e}")
         return None, "No ID found"
 
 

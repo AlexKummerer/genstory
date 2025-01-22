@@ -18,7 +18,6 @@ class CharacterService:
                 [trait.model_dump() for trait in data.traits] if data.traits else None
             )
 
-            print("traits", traits)
 
             new_character = Character(
                 id=str(uuid4()),
@@ -33,7 +32,6 @@ class CharacterService:
             db.add(new_character)
             await db.commit()
             await db.refresh(new_character)
-            print("new_character", new_character.to_response())
             return new_character.to_response()
         except Exception as e:
             raise HTTPException(

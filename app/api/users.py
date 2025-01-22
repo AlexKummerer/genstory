@@ -5,9 +5,6 @@ from app.core.config import settings
 
 router = APIRouter()
 
-
-print(settings.DATABASE_URL)
-
 router.include_router(
     fastapi_users.get_users_router(
         UserRead,
@@ -19,4 +16,3 @@ router.include_router(
 )
 
 current_user = fastapi_users.current_user()
-print(current_user)

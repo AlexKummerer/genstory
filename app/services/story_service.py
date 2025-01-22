@@ -39,7 +39,6 @@ class StoryService:
         if len(characters) != len(story.character_ids):
             raise HTTPException(status_code=400, detail="Invalid character IDs.")
 
-        print(characters)
         new_story = Story(
             id=str(uuid.uuid4()),
             user_id=user.id,
@@ -111,20 +110,15 @@ class StoryService:
         result = await db.execute(query)
         characters = result.scalars().all()
 
-        print(characters)
-
         if len(characters) != len(story.character_ids):
             raise HTTPException(status_code=400, detail="Invalid character IDs.")
 
         try:
             response = await generate_story_details_with_openai(story, characters)
-            print(response)
         except Exception as e:
             raise HTTPException(
                 status_code=500, detail=f"Error refining story details: {e}"
             )
-
-        print(response["character_roles"])
 
         story.optimized_title = response["optimized_title"]
         story.optimized_description = response["optimized_description"]
@@ -236,7 +230,6 @@ class StoryService:
         try:
             # Generate cover image
             cover_image_prompt = generate_cover_image_prompt(story)
-            print("starting cover image generation")
             image_b64 = generate_cover_image(cover_image_prompt["prompt"])
 
             image = Image(

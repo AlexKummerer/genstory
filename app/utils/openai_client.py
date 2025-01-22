@@ -4,7 +4,7 @@ from typing import Any, Coroutine, List, Optional, Dict
 
 from dotenv import load_dotenv
 from openai import OpenAI
-import openai
+
 from openai.resources.chat.completions import ChatCompletion
 from openai.resources.images import ImagesResponse
 
@@ -114,7 +114,6 @@ async def generate_character_with_openai(character_data: Character) -> Dict[str,
             # This is an example; adjust based on actual API requirements
             model="gpt-4o-mini",
         )
-        print(response)
 
         if not response.choices:
             raise ValueError("No choices found Open Ai response")
@@ -154,8 +153,6 @@ async def generate_story_details_with_openai(
             model="gpt-4o-mini",
         )
 
-        print(response)
-
         if not response.choices:
             raise ValueError("No choices found Open Ai response")
 
@@ -190,8 +187,6 @@ async def generate_story_content(story: Story) -> EnhancedStory:
             # This is an example; adjust based on actual API requirements
             model="gpt-4o-mini",
         )
-
-        print(response)
 
         if not response.choices:
             raise ValueError("No choices found Open Ai response")
@@ -253,8 +248,6 @@ Output the description as a single, cohesive paragraph, using immersive, narrati
             # This is an example; adjust based on actual API requirements
             model="gpt-4o-mini",
         )
-
-        print(response)
 
         if not response.choices:
             raise ValueError("No choices found Open Ai response")

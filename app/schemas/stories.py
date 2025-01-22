@@ -14,12 +14,11 @@ class StoryResponse(BaseModel):
     character_ids: List[str]
     character_roles: Optional[List[CharacterRole]]
     content: Optional[FullStoryDetails]
-    cover_image: Optional[str]
+    cover_image_id: Optional[str]
     status: str
 
 
 class StoryBasicUpdate(BaseModel):
-    id: str
     title: Optional[str]
     description: Optional[str]
 

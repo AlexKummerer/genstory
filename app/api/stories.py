@@ -1,10 +1,7 @@
-from datetime import datetime
-import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
 from typing import List
-from app.db.models import CharacterStatus, Story, Character, StoryStatus, User
+from app.db.models import StoryStatus, User
 from app.db.db import get_async_session
 from app.schemas.stories import (
     ImageDownloadResponse,
@@ -15,12 +12,6 @@ from app.schemas.stories import (
 )
 from app.services.story_service import StoryService
 from app.users.user import active_user
-from app.utils.openai_client import (
-    EnhancedStory,
-    FullStoryDetails,
-    generate_story_content,
-    generate_story_details_with_openai,
-)
 
 router = APIRouter()
 
@@ -91,8 +82,8 @@ async def refine_story_details(
 
 @router.put("/{story_id}/update", response_model=StoryResponse)
 async def update_story_basic_details(
-    story_id: str,
     story_update: StoryBasicUpdate,
+    story_id: str,
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(active_user),
 ):

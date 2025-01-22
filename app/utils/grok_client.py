@@ -87,13 +87,10 @@ async def generate_character_with_grok(
 
     try:
         response_data = response.json()
-        print(response_data, "response_data")
         content = response_data["choices"][0]["message"]["content"]
         if content.startswith("```json"):
             content = content.strip("```json").strip("```")
-        print(content, "content")
         character_data = json.loads(content)  # Convert string response to dict
-        print(character_data, "character_data")
         if not all(
             key in character_data
             for key in [

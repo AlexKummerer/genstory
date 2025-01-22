@@ -7,11 +7,11 @@ load_dotenv()
 
 
 class Settings(BaseSettings):
-    APP_NAME: str = "Character API"
-    DATABASE_URL: str = "sqlite+aiosqlite:///app/db/test.db"
+    APP_NAME: str = "GenStoryAI"
+    DATABASE_URL: str = os.getenv("DATABASE_URL")
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY")
     SECRET_KEY: str = os.getenv("SECRET_KEY")
-    
+
     class Config:
         env_file = ".env"
 
