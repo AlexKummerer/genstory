@@ -179,9 +179,18 @@ This project uses **Alembic** for database migrations to handle schema changes i
      ```
 
 3. **Configure the `alembic.ini` file**:
+
    - Update the `sqlalchemy.url` key with your database URL:
      ```ini
      sqlalchemy.url = sqlite+aiosqlite:///./test.db
+     ```
+
+4. **Configure Alembic to work with your models**:
+
+   - In the env.py file, import your Base object and target metadata:
+     ```ini
+     from app.db.models import Base
+     target_metadata = Base.metadata
      ```
 
 ### **Using Alembic**
