@@ -10,13 +10,12 @@ from fastapi_users.db import SQLAlchemyBaseUserTable, SQLAlchemyUserDatabase
 
 from app.db.db import async_session_maker, engine, get_user_db
 from app.db.models import User
-
-SECRET = "mysupersecretkey"
+from app.core.config import Settings
 
 
 class UserManager(UUIDIDMixin, BaseUserManager):
-    reset_password_token_secret = SECRET
-    verification_token_secret = SECRET
+    reset_password_token_secret = Settings.SECRET_KEY
+    verification_token_secret = Settings.SECRET_KEY
 
     async def on_after_register(self, user: User, request: Optional[Request] = None):
         print(f"User {user.id} has registered.")
@@ -46,8 +45,6 @@ class UserManager(UUIDIDMixin, BaseUserManager):
         print(f"User {user.id} has logged in.")
         print(f"Request: {request.json()}")
         print(f"Response: {response.body}")
-        
-        
 
     async def on_after_forgot_password(
         self, user: User, token: str, request: Optional[Request] = None
