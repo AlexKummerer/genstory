@@ -10,13 +10,14 @@ from fastapi_users.db import SQLAlchemyBaseUserTable, SQLAlchemyUserDatabase
 
 from app.db.db import async_session_maker, engine, get_user_db
 from app.db.models import User
-from app.core.config import Settings
+from app.core.config import settings
 
+print(f"Loaded APP_NAME: {settings.APP_NAME}")
+SECRET_KEY = settings.SECRET_KEY
 
 class UserManager(UUIDIDMixin, BaseUserManager):
-    reset_password_token_secret = Settings.SECRET_KEY
-    verification_token_secret = Settings.SECRET_KEY
-
+    reset_password_token_secret = SECRET_KEY
+    verification_token_secret = SECRET_KEY
     async def on_after_register(self, user: User, request: Optional[Request] = None):
         print(f"User {user.id} has registered.")
 
@@ -67,7 +68,10 @@ cookie_transport = BearerTransport(tokenUrl="/auth/jwt/login")
 
 def get_jwt_strategy():
     return JWTStrategy(
-        secret= Settings.SECRET_KEY, lifetime_seconds=3600, token_audience="fastapi-users:auth"
+        secret=SECRET_KEY,
+        lifetime_seconds=3600,
+        token_audience="fastapi-users:auth",
+        public_key=None,
     )
 
 
