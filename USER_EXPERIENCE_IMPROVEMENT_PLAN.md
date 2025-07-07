@@ -175,25 +175,35 @@ class GenreType(Enum):
 
 #### 2.1 Technology Stack Recommendation
 
-**Primary Choice: React + TypeScript + Vite**
+**Primary Choice: Angular 17/18 + TypeScript**
 ```json
 {
-  "framework": "React 18",
+  "framework": "Angular 18",
   "language": "TypeScript",
-  "build_tool": "Vite",
-  "styling": "Tailwind CSS + CSS Modules",
-  "state_management": "Zustand",
-  "routing": "React Router v6",
-  "animations": "Framer Motion",
-  "ui_components": "Shadcn/ui",
-  "api_client": "Axios + React Query",
-  "testing": "Vitest + React Testing Library"
+  "build_tool": "Angular CLI with esbuild",
+  "styling": "Tailwind CSS + Angular Material",
+  "state_management": "NgRx or Akita",
+  "routing": "Angular Router",
+  "animations": "Angular Animations API",
+  "ui_components": "Angular Material + Custom Components",
+  "api_client": "HttpClient + RxJS",
+  "testing": "Karma + Jasmine or Jest",
+  "features": {
+    "standalone_components": true,
+    "signals": true,
+    "new_control_flow": true,
+    "ssr": "Angular Universal (optional)"
+  }
 }
 ```
 
-**Alternative: Next.js 14**
-- Benefits: SSR, API routes, better SEO
-- Trade-offs: More complex, potential for over-engineering
+**Key Angular 17/18 Features to Leverage:**
+- **Signals**: For reactive state management
+- **Standalone Components**: Simplified component architecture
+- **New Control Flow**: @if, @for, @switch syntax
+- **Deferred Loading**: Lazy load heavy components
+- **Improved Hydration**: Better SSR performance
+- **Built-in Image Optimization**: NgOptimizedImage
 
 #### 2.2 Core Frontend Features
 
@@ -253,12 +263,38 @@ interface CharacterCreation {
 
 ### Phase 3: Interactive Features
 
-#### 3.1 Web-Based Animations
-- **Page Transitions**: Smooth scene changes
-- **Character Animations**: Subtle movements on hover
-- **Parallax Effects**: Depth in scene illustrations
-- **Text Reveals**: Words appearing as user reads
-- **Interactive Hotspots**: Click characters for info
+#### 3.1 Angular Animation Implementation
+Using Angular's powerful animation API for smooth, performant animations:
+
+**Angular Animation Examples:**
+```typescript
+// scene-transitions.animation.ts
+export const sceneTransition = trigger('sceneTransition', [
+  transition(':increment', [
+    style({ transform: 'translateX(100%)' }),
+    animate('600ms ease-out', style({ transform: 'translateX(0%)' }))
+  ]),
+  transition(':decrement', [
+    style({ transform: 'translateX(-100%)' }),
+    animate('600ms ease-out', style({ transform: 'translateX(0%)' }))
+  ])
+]);
+
+// character-hover.animation.ts
+export const characterHover = trigger('characterHover', [
+  state('idle', style({ transform: 'scale(1)' })),
+  state('hover', style({ transform: 'scale(1.05)' })),
+  transition('idle <=> hover', animate('300ms ease-in-out'))
+]);
+```
+
+**Planned Animations:**
+- **Page Transitions**: Slide, fade, and flip effects using Angular Animations
+- **Character Interactions**: Scale and bounce effects on hover/click
+- **Parallax Scrolling**: Using Angular CDK ScrollDispatcher
+- **Text Reveals**: Stagger animations with Angular Animation sequences
+- **Loading States**: Skeleton screens with shimmer effects
+- **Interactive Elements**: Ripple effects using Angular Material
 
 #### 3.2 Audio Integration
 - **Narration**: AI-generated voice per scene
@@ -372,56 +408,232 @@ class EnhancedStoryResponse(BaseModel):
 
 ### Frontend Architecture
 
-#### Component Structure
+#### Angular Project Structure
 ```
-src/
-├── components/
-│   ├── auth/
-│   │   ├── LoginForm.tsx
-│   │   ├── RegisterForm.tsx
-│   │   └── ProtectedRoute.tsx
-│   ├── characters/
-│   │   ├── CharacterCard.tsx
-│   │   ├── CharacterCreator.tsx
-│   │   ├── CharacterGallery.tsx
-│   │   └── TraitSelector.tsx
-│   ├── stories/
-│   │   ├── StoryCard.tsx
-│   │   ├── StoryCreationWizard.tsx
-│   │   ├── StoryRefinementPanel.tsx
-│   │   └── StoryLibrary.tsx
-│   └── reader/
-│       ├── StoryReader.tsx
-│       ├── SceneDisplay.tsx
-│       ├── NavigationControls.tsx
-│       ├── ReadingModes.tsx
-│       └── AudioPlayer.tsx
-├── pages/
-│   ├── Home.tsx
-│   ├── Dashboard.tsx
-│   ├── CharacterWorkshop.tsx
-│   ├── StoryStudio.tsx
-│   ├── Library.tsx
-│   └── Reader.tsx
-├── hooks/
-│   ├── useAuth.ts
-│   ├── useStory.ts
-│   ├── useCharacter.ts
-│   └── useReadingProgress.ts
-├── services/
-│   ├── api/
-│   │   ├── auth.ts
-│   │   ├── characters.ts
-│   │   ├── stories.ts
-│   │   └── client.ts
-│   └── storage/
-│       ├── localStorage.ts
-│       └── indexedDB.ts
-└── utils/
-    ├── animations.ts
-    ├── audioSync.ts
-    └── storyFormatter.ts
+genstory-frontend/
+├── src/
+│   ├── app/
+│   │   ├── core/                    # Core module - singleton services
+│   │   │   ├── services/
+│   │   │   │   ├── auth.service.ts
+│   │   │   │   ├── api.service.ts
+│   │   │   │   └── storage.service.ts
+│   │   │   ├── guards/
+│   │   │   │   ├── auth.guard.ts
+│   │   │   │   └── role.guard.ts
+│   │   │   ├── interceptors/
+│   │   │   │   ├── auth.interceptor.ts
+│   │   │   │   └── error.interceptor.ts
+│   │   │   └── core.module.ts
+│   │   │
+│   │   ├── shared/                  # Shared module - common components
+│   │   │   ├── components/
+│   │   │   │   ├── loading-spinner/
+│   │   │   │   ├── confirmation-dialog/
+│   │   │   │   └── pagination/
+│   │   │   ├── directives/
+│   │   │   │   ├── auto-focus.directive.ts
+│   │   │   │   └── infinite-scroll.directive.ts
+│   │   │   ├── pipes/
+│   │   │   │   ├── reading-time.pipe.ts
+│   │   │   │   └── truncate.pipe.ts
+│   │   │   └── shared.module.ts
+│   │   │
+│   │   ├── features/                # Feature modules
+│   │   │   ├── auth/
+│   │   │   │   ├── components/
+│   │   │   │   │   ├── login/
+│   │   │   │   │   ├── register/
+│   │   │   │   │   └── password-reset/
+│   │   │   │   ├── auth-routing.module.ts
+│   │   │   │   └── auth.module.ts
+│   │   │   │
+│   │   │   ├── characters/
+│   │   │   │   ├── components/
+│   │   │   │   │   ├── character-list/
+│   │   │   │   │   ├── character-create/
+│   │   │   │   │   ├── character-detail/
+│   │   │   │   │   └── trait-selector/
+│   │   │   │   ├── services/
+│   │   │   │   │   └── character.service.ts
+│   │   │   │   ├── characters-routing.module.ts
+│   │   │   │   └── characters.module.ts
+│   │   │   │
+│   │   │   ├── stories/
+│   │   │   │   ├── components/
+│   │   │   │   │   ├── story-list/
+│   │   │   │   │   ├── story-create/
+│   │   │   │   │   ├── story-wizard/
+│   │   │   │   │   └── refinement-panel/
+│   │   │   │   ├── services/
+│   │   │   │   │   ├── story.service.ts
+│   │   │   │   │   └── refinement.service.ts
+│   │   │   │   ├── stories-routing.module.ts
+│   │   │   │   └── stories.module.ts
+│   │   │   │
+│   │   │   └── reader/
+│   │   │       ├── components/
+│   │   │       │   ├── story-reader/
+│   │   │       │   ├── scene-display/
+│   │   │       │   ├── navigation-controls/
+│   │   │       │   ├── reading-modes/
+│   │   │       │   └── audio-player/
+│   │   │       ├── services/
+│   │   │       │   ├── reading-progress.service.ts
+│   │   │       │   └── audio-sync.service.ts
+│   │   │       ├── reader-routing.module.ts
+│   │   │       └── reader.module.ts
+│   │   │
+│   │   ├── layout/                  # Layout components
+│   │   │   ├── header/
+│   │   │   ├── sidebar/
+│   │   │   ├── footer/
+│   │   │   └── main-layout/
+│   │   │
+│   │   ├── models/                  # TypeScript interfaces/types
+│   │   │   ├── user.model.ts
+│   │   │   ├── character.model.ts
+│   │   │   ├── story.model.ts
+│   │   │   └── api-response.model.ts
+│   │   │
+│   │   ├── store/                   # NgRx store (if using NgRx)
+│   │   │   ├── auth/
+│   │   │   ├── characters/
+│   │   │   ├── stories/
+│   │   │   └── app.state.ts
+│   │   │
+│   │   ├── app-routing.module.ts
+│   │   ├── app.component.ts
+│   │   ├── app.component.html
+│   │   ├── app.component.scss
+│   │   └── app.config.ts          # Angular 17+ config
+│   │
+│   ├── assets/
+│   │   ├── images/
+│   │   ├── fonts/
+│   │   └── sounds/
+│   │
+│   ├── environments/
+│   │   ├── environment.ts
+│   │   └── environment.prod.ts
+│   │
+│   ├── styles.scss                 # Global styles
+│   ├── index.html
+│   └── main.ts
+│
+├── angular.json
+├── package.json
+├── tsconfig.json
+├── tailwind.config.js
+└── .eslintrc.json
 ```
+
+#### Key Angular Implementation Details
+
+**Service Architecture:**
+```typescript
+// auth.service.ts
+@Injectable({
+  providedIn: 'root'
+})
+export class AuthService {
+  private currentUserSubject = new BehaviorSubject<User | null>(null);
+  public currentUser$ = this.currentUserSubject.asObservable();
+  
+  constructor(private http: HttpClient) {}
+  
+  login(credentials: LoginCredentials): Observable<AuthResponse> {
+    return this.http.post<AuthResponse>('/auth/jwt/login', credentials)
+      .pipe(
+        tap(response => this.storeTokens(response)),
+        switchMap(() => this.loadCurrentUser())
+      );
+  }
+}
+```
+
+**Standalone Component Example:**
+```typescript
+// story-reader.component.ts
+@Component({
+  selector: 'app-story-reader',
+  standalone: true,
+  imports: [CommonModule, MaterialModule, RouterModule],
+  templateUrl: './story-reader.component.html',
+  styleUrls: ['./story-reader.component.scss'],
+  changeDetection: ChangeDetectionStrategy.OnPush
+})
+export class StoryReaderComponent {
+  currentScene = signal(0);
+  story = signal<Story | null>(null);
+  readingMode = signal<ReadingMode>('picture-book');
+  
+  constructor(
+    private storyService: StoryService,
+    private route: ActivatedRoute
+  ) {}
+}
+```
+
+**Angular Signals for State Management:**
+```typescript
+// reading-progress.service.ts
+@Injectable({
+  providedIn: 'root'
+})
+export class ReadingProgressService {
+  private progress = signal<ReadingProgress>({
+    currentScene: 0,
+    totalScenes: 0,
+    bookmarks: [],
+    readingTime: 0
+  });
+  
+  public progress$ = computed(() => this.progress());
+  public percentComplete = computed(() => 
+    (this.progress().currentScene / this.progress().totalScenes) * 100
+  );
+}
+```
+
+#### Angular-Specific Tools & Libraries
+
+**Core Dependencies:**
+```json
+{
+  "@angular/animations": "^18.0.0",
+  "@angular/cdk": "^18.0.0",
+  "@angular/common": "^18.0.0",
+  "@angular/core": "^18.0.0",
+  "@angular/forms": "^18.0.0",
+  "@angular/material": "^18.0.0",
+  "@angular/platform-browser": "^18.0.0",
+  "@angular/router": "^18.0.0",
+  "rxjs": "^7.8.0",
+  "@ngrx/store": "^17.0.0",
+  "@ngrx/effects": "^17.0.0",
+  "@ngrx/entity": "^17.0.0"
+}
+```
+
+**UI & Styling:**
+- **Angular Material**: Material Design components
+- **Tailwind CSS**: Utility-first styling
+- **Angular CDK**: Component behaviors (drag-drop, overlay, etc.)
+- **ngx-markdown**: Markdown rendering for stories
+
+**Development Tools:**
+- **Angular DevTools**: Debugging and profiling
+- **Compodoc**: Documentation generation
+- **Angular ESLint**: Code quality
+- **Cypress**: E2E testing
+- **Jest**: Unit testing (alternative to Karma)
+
+**Performance Tools:**
+- **Angular Universal**: Server-side rendering
+- **Angular Service Worker**: PWA support
+- **webpack-bundle-analyzer**: Bundle optimization
+- **ngx-quicklink**: Prefetch visible links
 
 ## Implementation Roadmap
 
@@ -435,21 +647,21 @@ src/
 - **Week 3**: Export functionality (PDF, EPUB)
 - **Week 4**: API optimization and testing
 
-### Month 3: Frontend Foundation
-- **Week 1**: Project setup and authentication
-- **Week 2**: Character management UI
-- **Week 3**: Story creation wizard
-- **Week 4**: Basic story reader
+### Month 3: Angular Frontend Foundation
+- **Week 1**: Angular 18 project setup, core module, authentication with guards/interceptors
+- **Week 2**: Character module with Angular Material components, reactive forms
+- **Week 3**: Story creation wizard using Angular CDK Stepper
+- **Week 4**: Basic story reader with standalone components and signals
 
-### Month 4: Reading Experience
-- **Week 1-2**: Multiple reading modes
-- **Week 3**: Progress tracking and bookmarks
-- **Week 4**: Refinement interface
+### Month 4: Angular Reading Experience
+- **Week 1-2**: Multiple reading modes with Angular CDK Layout
+- **Week 3**: Progress tracking using Angular signals and localStorage
+- **Week 4**: Refinement interface with diff viewer
 
-### Month 5: Polish & Enhancement
-- **Week 1-2**: Animations and transitions
-- **Week 3**: Audio integration
-- **Week 4**: Performance optimization
+### Month 5: Angular Polish & Enhancement
+- **Week 1-2**: Angular Animations API for transitions and effects
+- **Week 3**: Audio integration with Web Audio API
+- **Week 4**: Performance optimization with OnPush strategy, lazy loading
 
 ### Month 6: Advanced Features
 - **Week 1-2**: Sharing and collaboration
